@@ -252,7 +252,6 @@ class DinoVisionTransformer(nn.Module):
             return self.forward_features_list(x, masks)
 
         x = self.prepare_tokens_with_masks(x, masks)
-
         for blk in self.blocks:
             x = blk(x)
 

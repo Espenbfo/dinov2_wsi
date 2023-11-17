@@ -175,7 +175,6 @@ def get_attn_bias_and_cat(x_list, branges=None):
         attn_bias = fmha.BlockDiagonalMask.from_seqlens(seqlens)
         attn_bias._batch_sizes = batch_sizes
         attn_bias_cache[all_shapes] = attn_bias
-
     if branges is not None:
         cat_tensors = index_select_cat([x.flatten(1) for x in x_list], branges).view(1, -1, x_list[0].shape[-1])
     else:
