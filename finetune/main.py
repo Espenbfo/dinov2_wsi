@@ -13,22 +13,22 @@ from pathlib import Path
 import h5py
 
 DEVICE = "cuda"
-EPOCHS = 5
+EPOCHS = 1
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 CHECKPOINT_TIME = 20 # Minutes
-LEARNING_RATE_CLASSIFIER = 0.0001
-LEARNING_RATE_FEATURES = 5e-6
+LEARNING_RATE_CLASSIFIER = 1e-4
+LEARNING_RATE_FEATURES = 1e-6
 FILENAME = "weights.pt"
-TRAIN_TRANSFORMER = False
-DATASET_FOLDER = Path(r"")
-TRAIN_DATASET_FRACTION = 0.95
+TRAIN_TRANSFORMER = True
 GRAD_CLIP_VALUE = 0.0
-STEPS_PR_SCHEDULER_UPDATE = 1000
+STEPS_PR_SCHEDULER_UPDATE = 10000
 SCHEDULER_GAMMA = 0.90
 TRAIN_X_PATH = Path("/home/espenbfo/datasets/classification/pcam/training_split.h5")
 TRAIN_Y_PATH = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_train_y.h5")
+TRAIN_X_PATH_VAL = Path("/home/espenbfo/datasets/classification/pcam/validation_split.h5")
+TRAIN_Y_PATH_VAL = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_valid_y.h5")
 CHECKPOINT_PATH = None#Path("/home/espenbfo/results/model_final.rank_0.pth")
 def main():
     print("Cuda available?", torch.cuda.is_available())
@@ -40,12 +40,18 @@ def main():
     fy = h5py.File(TRAIN_Y_PATH, "r")
     print(fy.keys())
     train_y = fy["y"]
+
+    fx_val = h5py.File(TRAIN_X_PATH_VAL, "r")
+    train_x_val = fx_val["x"]
+    fy_val = h5py.File(TRAIN_Y_PATH_VAL, "r")
+    train_y_val = fy_val["y"]
+
     # train_y = np.load(TRAIN_Y_PATH, allow_pickle=True)
     print(train_x.shape)
     dataset_train = PathologyDataset(train_x, train_y)
+    dataset_val = PathologyDataset(train_x_val, train_y_val)
     classes = dataset_train.classes
 
-    dataset_val = dataset_train
     # dataset_train, dataset_val, classes = load_datasets(DATASET_FOLDER, train_fraction=TRAIN_DATASET_FRACTION)
     dataloader_train = load_dataloader(dataset_train, BATCH_SIZE, classes,True)
     dataloader_val = load_dataloader(dataset_val, BATCH_SIZE, classes, False)
@@ -110,16 +116,17 @@ def main():
         print("VALIDATION")
         val_accuracy = 0
         val_loss = 0
-        for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_val))):
-            batch = batch.to(DEVICE)
-            label = label.to(DEVICE)
+        with torch.no_grad():
+            for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_val), total=len(dataloader_val))):
+                batch = batch.to(DEVICE)
+                label = label.to(DEVICE)
 
-            result = model(batch)
-            accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum()/BATCH_SIZE
-            loss = cross_entropy(result, label)
+                result = model(batch)
+                accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum()/BATCH_SIZE
+                loss = cross_entropy(result, label)
 
-            val_accuracy += accuracy
-            val_loss += loss.detach().cpu()
+                val_accuracy += accuracy
+                val_loss += loss.detach().cpu()
 
         print(f"Average batch loss: {val_loss/len(dataloader_val)}, Average batch accuracy {val_accuracy/len(dataloader_val)}")
 

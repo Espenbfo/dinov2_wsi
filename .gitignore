@@ -13,3 +13,4 @@ dist/
 *.log
 
 classes.json
+weights.pt
