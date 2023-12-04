@@ -1,8 +1,8 @@
 import torch
 from tqdm import tqdm
 
-from dataset import load_datasets, load_dataloader
-from model import init_model, load_model
+from .dataset import PathologyDataset, load_datasets, load_dataloader
+from .model import init_model, load_model
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.nn.functional import cross_entropy
@@ -10,10 +10,11 @@ import json
 import time
 import numpy as np
 from pathlib import Path
+import h5py
 
 DEVICE = "cuda"
 EPOCHS = 5
-CONTINUE_TRAINING = True
+CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
 BATCH_SIZE = 16
 CHECKPOINT_TIME = 20 # Minutes
@@ -26,15 +27,32 @@ TRAIN_DATASET_FRACTION = 0.95
 GRAD_CLIP_VALUE = 0.0
 STEPS_PR_SCHEDULER_UPDATE = 1000
 SCHEDULER_GAMMA = 0.90
+TRAIN_X_PATH = Path("/home/espenbfo/datasets/classification/pcam/training_split.h5")
+TRAIN_Y_PATH = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_train_y.h5")
+CHECKPOINT_PATH = None#Path("/home/espenbfo/results/model_final.rank_0.pth")
 def main():
     print("Cuda available?", torch.cuda.is_available())
-    dataset_train, dataset_val, classes = load_datasets(DATASET_FOLDER, train_fraction=TRAIN_DATASET_FRACTION)
+
+
+    fx = h5py.File(TRAIN_X_PATH, "r")
+    print(fx.keys())
+    train_x = fx["x"]
+    fy = h5py.File(TRAIN_Y_PATH, "r")
+    print(fy.keys())
+    train_y = fy["y"]
+    # train_y = np.load(TRAIN_Y_PATH, allow_pickle=True)
+    print(train_x.shape)
+    dataset_train = PathologyDataset(train_x, train_y)
+    classes = dataset_train.classes
+
+    dataset_val = dataset_train
+    # dataset_train, dataset_val, classes = load_datasets(DATASET_FOLDER, train_fraction=TRAIN_DATASET_FRACTION)
     dataloader_train = load_dataloader(dataset_train, BATCH_SIZE, classes,True)
     dataloader_val = load_dataloader(dataset_val, BATCH_SIZE, classes, False)
     if CONTINUE_TRAINING:
         model = load_model(len(classes), "weights.pt").to(DEVICE)
     else:
-        model = init_model(len(classes)).to(DEVICE)
+        model = init_model(len(classes), CHECKPOINT_PATH).to(DEVICE)
     model.transformer.eval()
     params = [{"params": model.classifier.parameters(), "lr": LEARNING_RATE_CLASSIFIER}]
 
@@ -58,7 +76,6 @@ def main():
         print("TRAIN")
         for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train))):
             optimizer_classifier.zero_grad()
-
             batch = batch.to(DEVICE)
             label = label.to(DEVICE)
             result = model(batch)
@@ -72,7 +89,6 @@ def main():
             optimizer_classifier.step()
             loss_arr = np.roll(loss_arr, -1)
             loss_arr[-1] = loss.detach().cpu()
-
             accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum()/BATCH_SIZE
 
             acc_arr = np.roll(acc_arr, -1)

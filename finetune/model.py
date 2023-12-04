@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from dinov2.models import build_model
+from dinov2.models.vision_transformer import vit_base
 class Model(nn.Module):
     def __init__(self, backbone, emb_dim, num_classes):
         super(Model, self).__init__()
@@ -23,27 +23,38 @@ class Model(nn.Module):
         return x
 
 
+def extract_teacher_weights(ordered_dict):
+    new_dict = {}
+    for key in ordered_dict.keys():
+        if "teacher.backbone." in key:
+            new_key = key.replace("teacher.backbone.", "")
+            new_dict[new_key] = ordered_dict[key]
+    return new_dict
+
+
 def init_model(classes, pretrained_path=None):
     vit_kwargs = dict(
         img_size=224,
-        arch="vit_base",
-        patch_size=args.patch_size,
-        init_values=args.layerscale,
-        ffn_layer=args.ffn_layer,
-        block_chunks=args.block_chunks,
-        qkv_bias=args.qkv_bias,
-        proj_bias=args.proj_bias,
-        ffn_bias=args.ffn_bias,
-        num_register_tokens=args.num_register_tokens,
-        interpolate_offset=args.interpolate_offset,
-        interpolate_antialias=args.interpolate_antialias,
+        patch_size=16,
+        init_values=1.0e-05,
+        ffn_layer="swiglufused",
+        block_chunks=4,
+        qkv_bias=True,
+        proj_bias=True,
+        ffn_bias=True,
+        num_register_tokens=0,
+        interpolate_offset=0.1,
+        interpolate_antialias=False,
     )
-
-    backbone, emb_dim = build_model(**vit_kwargs, only_teacher=True)
+    backbone = vit_base(**vit_kwargs)
+    emb_dim = backbone.embed_dim
 
     if pretrained_path is not None:
         data = torch.load(pretrained_path)
-        state_dict = data["model"].transformer
+        print(data.keys())
+        print(data["model"].keys())
+        print(type(data["model"]))
+        state_dict = extract_teacher_weights(data["model"])
         backbone.load_state_dict(state_dict)
 
     model = Model(backbone, emb_dim, classes)
