@@ -8,6 +8,7 @@ import logging
 from torchvision import transforms
 
 from .transforms import (
+    MaybeToTensor,
     GaussianBlur,
     make_normalize_transform,
 )
@@ -84,7 +85,7 @@ class DataAugmentationDINO(object):
         # normalization
         self.normalize = transforms.Compose(
             [
-                transforms.ToTensor(),
+                MaybeToTensor(),
                 make_normalize_transform(),
             ]
         )
