@@ -13,7 +13,7 @@ class PathologyDataset(Dataset):
         self.train_y = train_y
         self.classes = ["not_cancer", "cancer"]
         self.transforms = transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((224, 224), antialias=False),
             
         ])
     def __len__(self):
