@@ -4,7 +4,7 @@ from tqdm import tqdm
 from .dataset import PathologyDataset, load_datasets, load_dataloader
 from .model import init_model, load_model
 from torch.optim import Adam
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.functional import cross_entropy
 import json
 import time
@@ -18,18 +18,20 @@ CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
 BATCH_SIZE = 32
 CHECKPOINT_TIME = 20 # Minutes
-LEARNING_RATE_CLASSIFIER = 1e-4
-LEARNING_RATE_FEATURES = 1e-6
+LEARNING_RATE_CLASSIFIER =1e-4
+LEARNING_RATE_FEATURES = 1e-4
 FILENAME = "weights.pt"
-TRAIN_TRANSFORMER = True
+TRAIN_TRANSFORMER = False
 GRAD_CLIP_VALUE = 0.0
-STEPS_PR_SCHEDULER_UPDATE = 10000
-SCHEDULER_GAMMA = 0.90
+STEPS_PR_SCHEDULER_UPDATE = 1000
+SCHEDULER_GAMMA = 0.70
 TRAIN_X_PATH = Path("/home/espenbfo/datasets/classification/pcam/training_split.h5")
 TRAIN_Y_PATH = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_train_y.h5")
 TRAIN_X_PATH_VAL = Path("/home/espenbfo/datasets/classification/pcam/validation_split.h5")
 TRAIN_Y_PATH_VAL = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_valid_y.h5")
-CHECKPOINT_PATH = None#Path("/home/espenbfo/results/model_final.rank_0.pth")
+TRAIN_X_PATH_TEST = Path("/home/espenbfo/datasets/classification/pcam/test_split.h5")
+TRAIN_Y_PATH_TEST = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_test_y.h5")
+CHECKPOINT_PATH = Path("/home/espenbfo/results/model_0178499.rank_0.pth")
 def main():
     print("Cuda available?", torch.cuda.is_available())
 
@@ -46,15 +48,25 @@ def main():
     fy_val = h5py.File(TRAIN_Y_PATH_VAL, "r")
     train_y_val = fy_val["y"]
 
+
+    fx_test = h5py.File(TRAIN_X_PATH_TEST, "r")
+    train_x_test = fx_test["x"]
+    fy_test = h5py.File(TRAIN_Y_PATH_TEST, "r")
+    train_y_test = fy_test["y"]
+
+
     # train_y = np.load(TRAIN_Y_PATH, allow_pickle=True)
     print(train_x.shape)
     dataset_train = PathologyDataset(train_x, train_y)
     dataset_val = PathologyDataset(train_x_val, train_y_val)
+    dataset_test = PathologyDataset(train_x_test, train_y_test)
     classes = dataset_train.classes
 
     # dataset_train, dataset_val, classes = load_datasets(DATASET_FOLDER, train_fraction=TRAIN_DATASET_FRACTION)
     dataloader_train = load_dataloader(dataset_train, BATCH_SIZE, classes,True)
     dataloader_val = load_dataloader(dataset_val, BATCH_SIZE, classes, False)
+    dataloader_test = load_dataloader(dataset_test, BATCH_SIZE, classes, False)
+
     if CONTINUE_TRAINING:
         model = load_model(len(classes), "weights.pt").to(DEVICE)
     else:
@@ -69,7 +81,7 @@ def main():
         for parameter in model.transformer.parameters():
             parameter.requires_grad = False
     optimizer_classifier = Adam(params)
-    scheduler = ExponentialLR(optimizer_classifier, gamma=0.9)
+    scheduler = CosineAnnealingLR(optimizer_classifier, T_max=EPOCHS)
     with open("classes.json", "w") as f:
         json.dump(classes, f)
 
@@ -101,13 +113,14 @@ def main():
             acc_arr[-1] = accuracy
             loss = loss_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
             accuracy = acc_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
-            learning_rates = scheduler.get_lr()
+            learning_rates = scheduler.get_last_lr()
             pbar.postfix = f"mean loss the last {min(index+1, LOSS_MEMORY)} batches {loss:.3f} | accuracy {accuracy:.3f} | time since checkpoint {time.time()-checkpoint_time:.1f}s | Learning rate {learning_rates[0]:.2g}"
             if (time.time() > checkpoint_time+CHECKPOINT_TIME*60):
                 torch.save(model.state_dict(), FILENAME)
                 checkpoint_time = time.time()
             if ((index+1)%STEPS_PR_SCHEDULER_UPDATE == 0):
-                scheduler.step()
+                pass
+        scheduler.step()
 
         if not TRAIN_TRANSFORMER:
             model.classifier.eval()
@@ -135,7 +148,22 @@ def main():
         else:
             model.train()
 
+    print("TEST")
+    test_accuracy = 0
+    test_loss = 0
+    with torch.no_grad():
+        for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_test), total=len(dataloader_test))):
+            batch = batch.to(DEVICE)
+            label = label.to(DEVICE)
 
+            result = model(batch)
+            accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum()/BATCH_SIZE
+            loss = cross_entropy(result, label)
+
+            test_accuracy += accuracy
+            test_loss += loss.detach().cpu()
+
+    print(f"Average batch loss: {test_loss/len(dataloader_test)}, Average batch accuracy {test_accuracy/len(dataloader_test)}")
 
 if __name__ == "__main__":
     main()

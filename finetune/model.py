@@ -8,11 +8,7 @@ class Model(nn.Module):
         self.hidden_dim=1024
         self.embed_dim = emb_dim
         self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim*2, self.hidden_dim),
-            nn.GELU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim),
-            nn.GELU(),
-            nn.Linear(self.hidden_dim, num_classes))
+            nn.Linear(self.embed_dim*2, num_classes))
 
     def forward(self, x):
         output = self.transformer(x, is_training=True)
@@ -47,16 +43,17 @@ def init_model(classes, pretrained_path=None):
         interpolate_antialias=False,
     )
     backbone = vit_base(**vit_kwargs)
+
     emb_dim = backbone.embed_dim
 
-    if pretrained_path is not None:
+    if pretrained_path == "dino":
+        backbone = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14_reg')
+    elif pretrained_path is not None:
         data = torch.load(pretrained_path)
-        print(data.keys())
-        print(data["model"].keys())
-        print(type(data["model"]))
         state_dict = extract_teacher_weights(data["model"])
         backbone.load_state_dict(state_dict)
 
+    print(f"Embedding dimension: {emb_dim}]")
     model = Model(backbone, emb_dim, classes)
     return model
 
