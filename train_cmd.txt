@@ -1,1 +1,1 @@
-PYTHONPATH=. python dinov2/run/train/train.py --nodes 1 --ngpus 1 --config-file dinov2/configs/train/vits16_wsi.yaml --output-dir /home/espenbfo/results train.dataset_path=Wsi:root=/home/espenbfo/datasets/wsi
+PYTHONPATH=. python dinov2/run/train/train.py --nodes 1 --ngpus 1 --no-resume --timeout 86400 --config-file dinov2/configs/train/vits16_wsi.yaml --output-dir /home/espenbfo/results train.dataset_path=Wsi:root=/home/espenbfo/datasets/wsi
