@@ -7,6 +7,7 @@ import cv2
 from torchvision.datasets import VisionDataset
 from torchvision.transforms import ToTensor
 from PIL import Image
+import h5py
 
 class WSIDataset(VisionDataset):
     def __init__(
@@ -18,6 +19,8 @@ class WSIDataset(VisionDataset):
         min_physical_size=100,
         max_physical_size=1000,
         base_resolution=1024,
+        use_preprocessed_thumbnails=True,
+        thumbnail_file_location="thumbnails.hdf5"
     ):
         super().__init__(root=root)
         self.reader = WSIReader()
@@ -29,6 +32,12 @@ class WSIDataset(VisionDataset):
         self.min_physical_size = min_physical_size
         self.max_physical_size = max_physical_size
         self.to_tensor = ToTensor()
+        self.use_preprocessed_thumbnails=use_preprocessed_thumbnails
+        self.thumbnail_file_location=thumbnail_file_location
+
+        if self.use_preprocessed_thumbnails:
+            self.thumbnails = h5py.File(self.thumbnail_file_location, "r")
+
 
     def __len__(self):
         return len(self.files)*self.samples_pr_slide_pr_epoch
@@ -43,24 +52,36 @@ class WSIDataset(VisionDataset):
         target = self.get_target(index)
         return self.transform(Image.fromarray(patch)), target
 
-    def extract_valid_patches(self, wsi, patch_physical_size, threshold=0.1):
-        highest_level = self.reader.get_level_count(wsi) - 1
-        microns_prpx_x, microns_prpx_y = self.reader.get_mpp(wsi, highest_level)
+    def extract_valid_patches(self, wsi, patch_physical_size, path, threshold=0.1):
 
-        whole_image, meta_data = self.reader.get_data(wsi, level=highest_level)
-        width_pixels, height_pixels = meta_data["spatial_shape"]
-        width = width_pixels * microns_prpx_x
-        height = height_pixels * microns_prpx_y
-        n_patches_width = int(width // patch_physical_size)
-        n_patches_height = int(height // patch_physical_size)
+        if not self.use_preprocessed_thumbnails:
+            highest_level = self.reader.get_level_count(wsi) - 1
+            microns_prpx_y, microns_prpx_x = self.reader.get_mpp(wsi, highest_level)
 
-        assert n_patches_width > 0 and n_patches_height > 0
+            whole_image, meta_data = self.reader.get_data(wsi, level=highest_level)
 
-        whole_image = whole_image.mean(axis=0)
+            height_pixels, width_pixels = meta_data["spatial_shape"]
+            width = width_pixels * microns_prpx_x
+            height = height_pixels * microns_prpx_y
+            n_patches_width = int(width // patch_physical_size)
+            n_patches_height = int(height // patch_physical_size)
 
-        resized = cv2.resize(whole_image, (n_patches_width, n_patches_height))
+            assert n_patches_width > 0 and n_patches_height > 0
 
-        resized = (resized < 255 - threshold * 255).astype(int)
+            whole_image = whole_image.mean(axis=0)
+
+            resized = cv2.resize(whole_image, (n_patches_width, n_patches_height))
+
+            resized = (resized < 255 - threshold * 255).astype(int)
+        else:
+            thumbnail = self.thumbnails[path.as_posix()]
+            width = thumbnail.attrs["width"]
+            height = thumbnail.attrs["height"]
+
+            n_patches_width = int(width // patch_physical_size)
+            n_patches_height = int(height // patch_physical_size)
+            resized = cv2.resize(thumbnail[()], (n_patches_width, n_patches_height))
+            resized = (resized < 255 - threshold * 255).astype(int)
 
         return resized
 
@@ -103,8 +124,8 @@ class WSIDataset(VisionDataset):
 
     def random_valid_patch(self, path, patch_physical_size, resolution):
         wsi = self.reader.read(path.as_posix())
-
-        valid_patches = self.extract_valid_patches(wsi, patch_physical_size)
+        
+        valid_patches = self.extract_valid_patches(wsi, patch_physical_size, path)
         options = np.argwhere(valid_patches > 0)
 
         rnd_index = np.random.choice(len(options))
