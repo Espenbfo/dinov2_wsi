@@ -75,7 +75,11 @@ class CamyleonDataset(Dataset):
         mask_highest_level = self.reader_mask.get_level_count(mask_file) - 1
         mask = self.reader_mask.get_data(mask_file, level=mask_highest_level, mode="Å")
 
-        coords = self.find_random_area_with_label(mask[0][0], label)
+        if label == 2:
+            cancer_coords = self.preprocessed_data[str(index)]["cancer"]
+            coords = cancer_coords[np.random.choice(len(cancer_coords))]
+        else:
+            coords = self.find_random_area_with_label(mask[0][0], label)
 
         image_filename = self.files["images"][index]
         image_file = self.reader.read(image_filename)
