@@ -12,3 +12,6 @@ cuml-cu11
 monai
 opencv-python
 cucim
+tifffile
+imagecodecs
+h5py
