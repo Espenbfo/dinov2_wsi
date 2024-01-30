@@ -21,10 +21,7 @@ class CamyleonDataset(Dataset):
         masks = []
         images = []
         label_to_index = {label: list() for label in self.labels}
-        print(label_to_index)
         for i, key in enumerate(self.preprocessed_data.keys()):
-            print(key)
-            print(self.preprocessed_data[key].attrs.keys())
             images.append(self.preprocessed_data[key].attrs["image_file"])
             masks.append(self.preprocessed_data[key].attrs["mask_file"])
             for label in self.preprocessed_data[key].attrs["labels"]:
@@ -118,7 +115,6 @@ class CamyleonDataset(Dataset):
             size=(patch_resolution, patch_resolution),
             level=current_level,
         )
-        print(image_before.shape)
         image = cv2.resize(np.moveaxis(image_before, 0, 2), (resolution, resolution), interpolation=cv2.INTER_AREA)
 
         return image
