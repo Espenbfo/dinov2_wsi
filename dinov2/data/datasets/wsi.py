@@ -48,7 +48,11 @@ class WSIDataset(VisionDataset):
         physical_size = np.random.randint(
             self.min_physical_size, self.max_physical_size
         )
-        patch = self.random_valid_patch(path, physical_size, self.base_resolution)
+        try:
+            patch = self.random_valid_patch(path, physical_size, self.base_resolution)
+        except Exception as e:
+            print(path)
+            raise Exception(str(path)) from e
         target = self.get_target(index)
         return self.transform(Image.fromarray(patch)), target
 

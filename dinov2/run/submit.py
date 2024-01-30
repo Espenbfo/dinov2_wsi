@@ -56,14 +56,14 @@ def get_args_parser(
     )
     parser.add_argument(
         "--partition",
-        default=slurm_partition,
+        default="GPUQ",
         type=str,
         help="Partition where to submit",
     )
     parser.add_argument(
-        "--use-volta32",
+        "--use-80g",
         action="store_true",
-        help="Request V100-32GB GPUs",
+        help="Request 80GB GPUs",
     )
     parser.add_argument(
         "--comment",
@@ -97,8 +97,8 @@ def submit_jobs(task_class, args, name: str):
     executor = submitit.AutoExecutor(folder=args.output_dir, slurm_max_num_timeout=30)
 
     kwargs = {}
-    if args.use_volta32:
-        kwargs["slurm_constraint"] = "volta32gb"
+    if args.use_80g:
+        kwargs["slurm_constraint"] = "gpu80g"
     if args.comment:
         kwargs["slurm_comment"] = args.comment
     if args.exclude:

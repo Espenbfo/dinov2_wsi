@@ -5,6 +5,7 @@ import h5py
 from monai.data import WSIReader
 import cv2
 import os
+import numpy as np
 
 MIN_PATCH_SIZE = 100 # microns
 THRESHOLD = 0.1
@@ -56,7 +57,12 @@ def main():
         whole_image_grayscale = whole_image.mean(axis=0)
         resized = cv2.resize(whole_image_grayscale, (n_patches_width, n_patches_height))
 
-        #whole_image_grayscale = (resized < 255 - THRESHOLD * 255).astype(int)
+        patches_under_threshold = (resized < (255 - (THRESHOLD * 255))).astype(int)
+        
+        n = len(np.argwhere(patches_under_threshold > 0))
+        if (n < 10):
+            print("WSI", file.as_posix(), "has only got", n, "valid patches. This is bad")
+
         dataset = output_file.create_dataset(file.as_posix(), data=resized)
         dataset.attrs["width"] = width
         dataset.attrs["height"] = height

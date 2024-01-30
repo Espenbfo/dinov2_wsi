@@ -1,7 +1,7 @@
 # this corresponds to the default config
 train:
   dataset_path: Wsi
-  batch_size_per_gpu: 32
+  batch_size_per_gpu: 256
   centering: sinkhorn_knopp
   cache_dataset: false
   num_workers: 8
