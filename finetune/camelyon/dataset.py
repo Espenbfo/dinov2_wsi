@@ -41,7 +41,7 @@ class CamyleonDataset(Dataset):
         label = np.random.choice(self.labels)
         index = np.random.choice(self.label_to_index[label])
 
-        return self.retrieve_patch_with_label(label, index, (100, 1000)), label
+        return self.retrieve_patch_with_label(label, index, (100, 400)), label
 
     def get_image_and_mask(self, index):
         mask_filename = self.files["masks"][index]
