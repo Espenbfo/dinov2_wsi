@@ -52,7 +52,7 @@ def main():
     # Make sure that each image has a corresponding mask
     images = sorted(list(filter(lambda filename: filename.stem in mask_stems, images)))
 
-    for i, file in enumerate(masks):
+    for i, file in tqdm.tqdm(enumerate(masks), total=len(masks)):
         assert file.as_posix() not in output_file
         slide_file = wsi_reader.read(file.as_posix())
 
