@@ -165,7 +165,6 @@ class SSLMetaArch(nn.Module):
             ibot_teacher_patch_tokens = teacher_backbone_output_dict["x_norm_patchtokens"]
             _dim = ibot_teacher_patch_tokens.shape[-1]
             n_cls_tokens = teacher_cls_tokens.shape[0]
-
             if do_ibot and not self.ibot_separate_head:
                 buffer_tensor_teacher = ibot_teacher_patch_tokens.new_zeros(upperbound + n_cls_tokens, _dim)
                 buffer_tensor_teacher[:n_cls_tokens].copy_(teacher_cls_tokens)
@@ -228,7 +227,6 @@ class SSLMetaArch(nn.Module):
 
         teacher_dino_softmaxed_centered_list, masked_teacher_ibot_softmaxed_centered = get_teacher_output()
         reshard_fsdp_model(self.teacher)
-
         loss_dict = {}
 
         loss_accumulator = 0  # for backprop
@@ -260,7 +258,6 @@ class SSLMetaArch(nn.Module):
                 student_global_masked_patch_tokens_after_head = self.student.ibot_head(buffer_tensor_patch_tokens)[
                     :n_masked_patches
                 ]
-
         # 2: run
         _attn_bias, cat_inputs = fmha.BlockDiagonalMask.from_tensor_list(inputs_for_student_head_list)
         outputs_list = _attn_bias.split(self.student.dino_head(cat_inputs))
@@ -310,7 +307,7 @@ class SSLMetaArch(nn.Module):
 
             student_cls_tokens = student_global_cls_tokens
 
-            if self.do_koleo:
+            if False and self.do_koleo:
                 koleo_loss = self.cfg.dino.koleo_loss_weight * sum(
                     self.koleo_loss(p) for p in student_cls_tokens.chunk(2)
                 )  # we don't apply koleo loss between cls tokens of a same image

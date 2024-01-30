@@ -12,3 +12,7 @@ cuml-cu11
 monai
 opencv-python
 cucim
+wheel
+rope
+timm
+mamba_ssm
