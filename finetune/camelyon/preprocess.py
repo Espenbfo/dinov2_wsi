@@ -54,7 +54,7 @@ def main():
 
     for i, file in tqdm.tqdm(enumerate(masks), total=len(masks)):
         assert file.as_posix() not in output_file
-        slide_file = wsi_reader.read(file.as_posix())
+        slide_file = wsi_reader.read(masks[i].as_posix())
 
         whole_image, meta_data = wsi_reader.get_data(slide_file, level=6, mode="hahaha")
         height_pixels, width_pixels = meta_data["spatial_shape"]
@@ -80,6 +80,7 @@ def main():
             tumor_coords[:, 0] /= inner_image.shape[0]
             tumor_coords[:, 1] /= inner_image.shape[1]
             grp.create_dataset("cancer", data=tumor_coords)
+            print(images[i].as_posix())
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 from monai.data import WSIReader
 import torch
+from torchvision import transforms
 import numpy as np
 import cv2
 import h5py
@@ -17,6 +18,13 @@ class CamyleonDataset(Dataset):
 
         self.files = self.find_valid_files()
 
+        self.transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Resize((224, 224), antialias=False),
+            
+        ])
+        print(self.files)
+
     def find_valid_files(self):
         masks = []
         images = []
@@ -26,7 +34,9 @@ class CamyleonDataset(Dataset):
             masks.append(self.preprocessed_data[key].attrs["mask_file"])
             for label in self.preprocessed_data[key].attrs["labels"]:
                 if label in self.labels:
-                    label_to_index[label].append(i)
+                    print(i, label, label in self.preprocessed_data[key].attrs["labels"], self.preprocessed_data[key].attrs["labels"])
+                    label_to_index[label].append((i, key))
+            print(self.preprocessed_data[key].attrs["image_file"])
 
         self.label_to_index = label_to_index
         return {"masks": masks, "images": images}
@@ -36,16 +46,13 @@ class CamyleonDataset(Dataset):
 
     def __getitem__(self, index) -> (torch.Tensor, torch.Tensor):
         label = np.random.choice(self.labels)
-        index = np.random.choice(self.label_to_index[label])
+        index, key = self.label_to_index[label][np.random.choice(len(self.label_to_index[label]))]
 
-        return self.retrieve_patch_with_label(label, index, (100, 400)), label
+        return self.retrieve_patch_with_label(label, index, key, (100, 400)), label
 
     def get_image_and_mask(self, index):
         mask_filename = self.files["masks"][index]
         image_filename = self.files["images"][index]
-
-        print(mask_filename)
-        print(image_filename)
         mask_file = self.reader_mask.read(mask_filename)
         image_file = self.reader.read(image_filename)
 
@@ -68,7 +75,7 @@ class CamyleonDataset(Dataset):
 
         return y, x
 
-    def retrieve_patch_with_label(self, label, index, sizes: tuple[int]):
+    def retrieve_patch_with_label(self, label, index, key, sizes: tuple[int]):
         mask_filename = self.files["masks"][index]
         mask_file = self.reader_mask.read(mask_filename)
 
@@ -76,7 +83,7 @@ class CamyleonDataset(Dataset):
         mask = self.reader_mask.get_data(mask_file, level=mask_highest_level, mode="Å")
 
         if label == 2:
-            cancer_coords = self.preprocessed_data[str(index)]["cancer"]
+            cancer_coords = self.preprocessed_data[key]["cancer"]
             coords = cancer_coords[np.random.choice(len(cancer_coords))]
         else:
             coords = self.find_random_area_with_label(mask[0][0], label)
@@ -85,7 +92,7 @@ class CamyleonDataset(Dataset):
         image_file = self.reader.read(image_filename)
 
         images = [self.get_patch_at_location(image_file, coords, size, 224, True) for size in sizes]
-
+        images = [self.transforms(image) for image in images]
         return images
 
     def get_patch_at_location(self, wsi, location, patch_physical_size, resolution, location_is_center=False):
