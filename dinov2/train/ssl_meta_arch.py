@@ -278,6 +278,8 @@ class SSLMetaArch(nn.Module):
                 teacher_out_softmaxed_centered_list=teacher_dino_softmaxed_centered_list,
             ) / (n_global_crops_loss_terms + n_local_crops_loss_terms)
 
+
+
             # store for display
             loss_dict["dino_local_crops_loss"] = dino_local_crops_loss
 
@@ -286,7 +288,6 @@ class SSLMetaArch(nn.Module):
 
         # process global crops
         loss_scales = 2  # this is here since we process global crops together
-
         if do_dino:
             # compute loss
             dino_global_crops_loss = (
@@ -307,7 +308,7 @@ class SSLMetaArch(nn.Module):
 
             student_cls_tokens = student_global_cls_tokens
 
-            if False and self.do_koleo:
+            if self.do_koleo:
                 koleo_loss = self.cfg.dino.koleo_loss_weight * sum(
                     self.koleo_loss(p) for p in student_cls_tokens.chunk(2)
                 )  # we don't apply koleo loss between cls tokens of a same image
@@ -336,8 +337,33 @@ class SSLMetaArch(nn.Module):
             # accumulate loss
             loss_accumulator += self.ibot_loss_weight * ibot_patch_loss
 
+
+
         self.backprop_loss(loss_accumulator)
 
+        #print("dinohead grad")
+#
+        #for p in self.student.dino_head.parameters():
+        #    print("\n\n")
+        #    print(p.grad)
+#
+        #print("ibot grad")
+#
+        #for p in self.student.ibot_head.parameters():
+        #    print("\n\n")
+        #    print(p.grad)
+#
+        #print("backbone grad")
+#
+        for name, param in self.student.backbone.named_parameters():
+            #print("\n\n")
+            if param.requires_grad:
+                if param.grad.isnan().any():
+                    print(name)
+
+
+
+        #exit()
         self.fsdp_synchronize_streams()
 
         return loss_dict

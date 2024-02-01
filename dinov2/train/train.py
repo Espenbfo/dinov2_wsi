@@ -242,7 +242,17 @@ def do_train(cfg, model, resume=False):
         # compute losses
 
         optimizer.zero_grad(set_to_none=True)
+        a = False
         loss_dict = model.forward_backward(data, teacher_temp=teacher_temp)
+        for name, param in model.student.backbone.named_parameters():
+            #print("\n\n")
+            if param.requires_grad:
+                if param.isnan().any() and not a:
+                    print("error in weights")
+                    a = True
+                if param.grad.isnan().any():
+                    print(iteration)
+                    break
 
         # clip gradients
 
@@ -295,6 +305,7 @@ def do_train(cfg, model, resume=False):
 
 
 def main(args):
+    torch.autograd.set_detect_anomaly(True)
     cfg = setup(args)
 
     model = SSLMetaArch(cfg).to(torch.device("cuda"))
