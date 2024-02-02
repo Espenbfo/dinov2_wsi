@@ -79,11 +79,11 @@ def infer_slide(slide_path, batch_size, model, distance_per_sample=100, sizes=(1
                     predictions_arr[i, j] = label
                     pbar.update(1)
                     pbar.set_postfix_str(f"std: {torch.std(images[0]):.3f}")
-    return predictions_arr
+    return predictions_arr, ignored_arr
 
 
-def remove_noise(mask):
-    element = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, 5)
+def remove_noise(mask, kernel_size=3):
+    element = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size,kernel_size))
     return cv2.morphologyEx(mask, cv2.MORPH_OPEN, element)
 
 
