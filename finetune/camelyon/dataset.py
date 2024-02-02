@@ -32,8 +32,6 @@ class CamyleonDataset(Dataset):
 
         self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
 
-        print(self.files)
-
     def find_valid_files(self):
         masks = []
         images = []
@@ -45,20 +43,13 @@ class CamyleonDataset(Dataset):
             range(len(keys)), [self.train_fraction, 1 - self.train_fraction], generator
         )
         data = train if self.is_train else val
-        for i, key in enumerate(data):
-            key = keys[i]
+        for i, index in enumerate(data):
+            key = keys[index]
             images.append(self.preprocessed_data[key].attrs["image_file"])
             masks.append(self.preprocessed_data[key].attrs["mask_file"])
             for label in self.preprocessed_data[key].attrs["labels"]:
                 if label in self.labels:
-                    print(
-                        i,
-                        label,
-                        label in self.preprocessed_data[key].attrs["labels"],
-                        self.preprocessed_data[key].attrs["labels"],
-                    )
                     label_to_index[label].append((i, key))
-            print(self.preprocessed_data[key].attrs["image_file"])
 
         self.label_to_index = label_to_index
         return {"masks": masks, "images": images}
