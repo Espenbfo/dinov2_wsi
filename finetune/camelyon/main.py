@@ -13,7 +13,7 @@ import h5py
 from .dataset import CamyleonDataset
 
 DEVICE = "cuda"
-EPOCHS = 100
+EPOCHS = 1000
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000  # batches
 BATCH_SIZE = 32

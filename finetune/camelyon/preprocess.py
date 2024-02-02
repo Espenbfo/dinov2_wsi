@@ -80,7 +80,7 @@ def main():
             tumor_coords[:, 0] /= inner_image.shape[0]
             tumor_coords[:, 1] /= inner_image.shape[1]
             grp.create_dataset("cancer", data=tumor_coords)
-            print(images[i].as_posix())
+            #print(images[i].as_posix())
 
 
 if __name__ == "__main__":

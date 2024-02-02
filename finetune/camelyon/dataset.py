@@ -101,7 +101,6 @@ class CamyleonDataset(Dataset):
             coords = cancer_coords[np.random.choice(len(cancer_coords))]
         else:
             coords = self.find_random_area_with_label(mask[0][0], label)
-
         image_filename = self.files["images"][index]
         image_file = self.reader.read(image_filename)
 

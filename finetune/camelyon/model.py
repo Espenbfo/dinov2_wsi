@@ -67,7 +67,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
             state_dict = extract_teacher_weights(data["model"])
             backbone.load_state_dict(state_dict)
 
-    print(f"Embedding dimension: {emb_dim}]")
+    print(f"Embedding dimension: {emb_dim}")
     model = Model(backbone, emb_dim, classes)
     return model
 
