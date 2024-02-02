@@ -463,12 +463,11 @@ class Block(nn.Module):
             hidden_states: the sequence to the encoder layer (required).
             residual: hidden_states = Mixer(LN(residual))
         """
-        pre=hidden_states
         #if not self.fused_add_norm:
-        #    if residual is None:
-        #        residual = hidden_states
-        #    else:
-        #        residual = residual + self.drop_path(hidden_states)
+        if residual is None:
+            residual = hidden_states
+        else:
+            residual = residual + self.drop_path(hidden_states)
 #
         #    hidden_states = self.norm(residual.to(dtype=self.norm.weight.dtype))
         #    if self.residual_in_fp32:
@@ -495,7 +494,7 @@ class Block(nn.Module):
         #            residual_in_fp32=self.residual_in_fp32,
         #            eps=self.norm.eps,
         #        )
-        hidden_states = nn.functional.layer_norm(self.mixer(hidden_states, inference_params=inference_params), hidden_states.shape[-1:]) + pre
+        hidden_states = self.mixer(nn.functional.layer_norm(residual, residual.shape[-2:]), inference_params=inference_params)
         return hidden_states, residual
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
@@ -765,11 +764,11 @@ class VisionMamba(nn.Module):
 
             # Set prenorm=False here since we don't need the residual
 
-        #if not self.fused_add_norm:
-        #    if residual is None:
-        #        residual = x
-        #    else:
-        #        residual = residual + self.drop_path(x)
+        if not self.fused_add_norm:
+            if residual is None:
+                residual = x
+            else:
+                residual = residual + self.drop_path(x)
         #    x_norm = self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))
         #else:
         #    # Set prenorm=False here since we don't need the residual
@@ -785,12 +784,12 @@ class VisionMamba(nn.Module):
         #    )
 #
 
-        x_norm = nn.functional.layer_norm(x, x.shape[-1:])
+        x_norm = nn.functional.layer_norm(residual, residual.shape[-2:])
         return {
             "x_norm_clstoken": x_norm[:, 0],
             "x_norm_regtokens": x_norm[:, 1: 1],
             "x_norm_patchtokens": x_norm[:, 1:],
-            "x_prenorm": x,
+            "x_prenorm": residual,
             "masks": masks}
 
         # return only cls token if it exists
