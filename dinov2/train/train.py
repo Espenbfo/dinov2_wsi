@@ -305,7 +305,6 @@ def do_train(cfg, model, resume=False):
 
 
 def main(args):
-    torch.autograd.set_detect_anomaly(True)
     cfg = setup(args)
 
     model = SSLMetaArch(cfg).to(torch.device("cuda"))

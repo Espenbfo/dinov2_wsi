@@ -359,7 +359,7 @@ class SSLMetaArch(nn.Module):
             #print("\n\n")
             if param.requires_grad:
                 if param.grad.isnan().any():
-                    print(name)
+                    print(name, param.grad)
 
 
 
