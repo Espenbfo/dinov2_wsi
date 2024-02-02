@@ -121,6 +121,7 @@ def main():
             model.classifier.train()
         else:
             model.train()
+    torch.save(model.state_dict(), FILENAME)
 
 
 if __name__ == "__main__":
