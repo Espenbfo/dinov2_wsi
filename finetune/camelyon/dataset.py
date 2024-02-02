@@ -35,11 +35,12 @@ class CamyleonDataset(Dataset):
         images = []
         label_to_index = {label: list() for label in self.labels}
 
-        keys = self.preprocessed_data.keys()
+        keys = list(self.preprocessed_data.keys())
         generator = torch.Generator().manual_seed(101)
-        train, val = torch.utils.data.random_split(keys, [self.train_fraction, 1 - self.train_fraction], generator)
+        train, val = torch.utils.data.random_split(range(len(keys)), [self.train_fraction, 1 - self.train_fraction], generator)
         data = train if self.is_train else val
         for i, key in enumerate(data):
+            key = keys[i]
             images.append(self.preprocessed_data[key].attrs["image_file"])
             masks.append(self.preprocessed_data[key].attrs["mask_file"])
             for label in self.preprocessed_data[key].attrs["labels"]:

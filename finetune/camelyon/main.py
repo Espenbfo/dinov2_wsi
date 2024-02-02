@@ -99,10 +99,10 @@ def main():
         val_loss = 0
         with torch.no_grad():
             for index, (batch, label) in (pbar := tqdm(enumerate(dataloader_val), total=len(dataloader_val))):
-                batch = batch.to(DEVICE)
+                batch = (x.to(DEVICE) for x in batch)
                 label = label.to(DEVICE)
-
-                result = model(batch)
+                label -= 1
+                result = model(*batch)
                 accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum() / BATCH_SIZE
                 loss = cross_entropy(result, label)
 
