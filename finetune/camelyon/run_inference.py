@@ -7,7 +7,7 @@ import torch
 import tqdm
 transforms = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((224, 224), antialias=False),
+            transforms.Resize((224, 224), antialias=False)
             ])
 
 def get_patch_at_location(reader, wsi, location, patch_physical_size, resolution, location_is_center=False):
@@ -69,9 +69,10 @@ def infer_slide(slide_path, batch_size, model, distance_per_sample = 100, sizes=
                     if torch.std(images[0]) < 0.01:
                         label = 0
                     else:
-                        pred = model(*images)
+                        pred = torch.nn.Softmax()(model(*images))
                         pred = pred.detach().cpu()
-                        label = pred.argmax()+1
+                        label = 1+torch.argmax(pred[0])
+                        #label = 1 + 0.5 + pred[0][1]*0.5 - pred[0][0]*0.5
                     predictions_arr[i,j]=label
                     pbar.update(1)
                     pbar.set_postfix_str(f"std: {torch.std(images[0]):.3f}")
