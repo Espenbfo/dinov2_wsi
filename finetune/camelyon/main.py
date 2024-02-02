@@ -118,7 +118,7 @@ def main():
                 val_loss += loss.detach().cpu()
 
         print(
-            f"Average batch loss: {val_loss/len(dataloader_val)}, Average batch accuracy {val_accuracy/len(dataloader_val)}"
+            f"Average batch loss: {val_loss/len(dataloader_val):.3f}, Average batch accuracy {val_accuracy/len(dataloader_val):.3f}"
         )
 
         if not TRAIN_TRANSFORMER:
