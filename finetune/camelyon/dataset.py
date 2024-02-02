@@ -9,7 +9,9 @@ import h5py
 
 
 class CamyleonDataset(Dataset):
-    def __init__(self, preprocessed_data_file: Path | str, is_train=True, train_fraction=0.8) -> None:
+    def __init__(
+        self, preprocessed_data_file: Path | str, is_train=True, train_fraction=0.8, iterations_per_epoch_multiplier=100
+    ) -> None:
         super().__init__()
         self.preprocessed_data = h5py.File(preprocessed_data_file, "r")
         self.reader = WSIReader(backend="cucim")
@@ -28,6 +30,8 @@ class CamyleonDataset(Dataset):
             ]
         )
 
+        self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
+
         print(self.files)
 
     def find_valid_files(self):
@@ -37,7 +41,9 @@ class CamyleonDataset(Dataset):
 
         keys = list(self.preprocessed_data.keys())
         generator = torch.Generator().manual_seed(101)
-        train, val = torch.utils.data.random_split(range(len(keys)), [self.train_fraction, 1 - self.train_fraction], generator)
+        train, val = torch.utils.data.random_split(
+            range(len(keys)), [self.train_fraction, 1 - self.train_fraction], generator
+        )
         data = train if self.is_train else val
         for i, key in enumerate(data):
             key = keys[i]
@@ -58,7 +64,7 @@ class CamyleonDataset(Dataset):
         return {"masks": masks, "images": images}
 
     def __len__(self):
-        return len(self.files["images"])
+        return len(self.files["images"]) * self.iterations_per_epoch_multiplier
 
     def __getitem__(self, index) -> (torch.Tensor, torch.Tensor):
         label = np.random.choice(self.labels)

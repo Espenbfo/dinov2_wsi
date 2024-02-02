@@ -38,8 +38,12 @@ def main():
     print("Cuda available?", torch.cuda.is_available())
 
     classes = (1, 2)
-    dataset_train = CamyleonDataset(PREPROCESSED_DATASET_PATH)
-    dataset_val = CamyleonDataset(PREPROCESSED_DATASET_PATH, is_train=False)
+    dataset_train = CamyleonDataset(PREPROCESSED_DATASET_PATH, iterations_per_epoch_multiplier=100)
+    dataset_val = CamyleonDataset(PREPROCESSED_DATASET_PATH, is_train=False, iterations_per_epoch_multiplier=100)
+
+    train_files = dataset_train.files["images"]
+    val_files = dataset_val.files["images"]
+    assert True not in [file in train_files for file in val_files]
     dataloader_train = load_dataloader(dataset_train, BATCH_SIZE, classes, True)
     dataloader_val = load_dataloader(dataset_val, BATCH_SIZE, classes, False)
 
