@@ -16,6 +16,9 @@ class CamyleonDataset(Dataset):
         self.reader_mask = WSIReader(backend="tifffile")  ## Cucim doesn't support non-rgb images
         self.labels = (1, 2)
 
+        self.is_train = is_train
+        self.train_fraction = train_fraction
+
         self.files = self.find_valid_files()
 
         self.transforms = transforms.Compose(
@@ -25,8 +28,6 @@ class CamyleonDataset(Dataset):
             ]
         )
 
-        self.is_train = is_train
-        self.train_fraction = train_fraction
         print(self.files)
 
     def find_valid_files(self):
