@@ -9,7 +9,7 @@ import h5py
 
 
 class CamyleonDataset(Dataset):
-    def __init__(self, preprocessed_data_file: Path | str) -> None:
+    def __init__(self, preprocessed_data_file: Path | str, is_train=True, train_fraction=0.8) -> None:
         super().__init__()
         self.preprocessed_data = h5py.File(preprocessed_data_file, "r")
         self.reader = WSIReader(backend="cucim")
@@ -18,23 +18,37 @@ class CamyleonDataset(Dataset):
 
         self.files = self.find_valid_files()
 
-        self.transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize((224, 224), antialias=False),
-            
-        ])
+        self.transforms = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Resize((224, 224), antialias=False),
+            ]
+        )
+
+        self.is_train = is_train
+        self.train_fraction = train_fraction
         print(self.files)
 
     def find_valid_files(self):
         masks = []
         images = []
         label_to_index = {label: list() for label in self.labels}
-        for i, key in enumerate(self.preprocessed_data.keys()):
+
+        keys = self.preprocessed_data.keys()
+        generator = torch.Generator().manual_seed(101)
+        train, val = torch.utils.data.random_split(keys, [self.train_fraction, 1 - self.train_fraction], generator)
+        data = train if self.is_train else val
+        for i, key in enumerate(data):
             images.append(self.preprocessed_data[key].attrs["image_file"])
             masks.append(self.preprocessed_data[key].attrs["mask_file"])
             for label in self.preprocessed_data[key].attrs["labels"]:
                 if label in self.labels:
-                    print(i, label, label in self.preprocessed_data[key].attrs["labels"], self.preprocessed_data[key].attrs["labels"])
+                    print(
+                        i,
+                        label,
+                        label in self.preprocessed_data[key].attrs["labels"],
+                        self.preprocessed_data[key].attrs["labels"],
+                    )
                     label_to_index[label].append((i, key))
             print(self.preprocessed_data[key].attrs["image_file"])
 
