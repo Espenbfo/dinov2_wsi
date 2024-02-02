@@ -76,7 +76,9 @@ def main():
             optimizer_classifier.step()
             loss_arr = np.roll(loss_arr, -1)
             loss_arr[-1] = loss.detach().cpu()
-            accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum() / BATCH_SIZE
+            batch_size = label.size()[0]
+
+            accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum() / batch_size
 
             acc_arr = np.roll(acc_arr, -1)
             acc_arr[-1] = accuracy
@@ -103,7 +105,9 @@ def main():
                 label = label.to(DEVICE)
                 label -= 1
                 result = model(*batch)
-                accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum() / BATCH_SIZE
+                batch_size = label.size()[0]
+
+                accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum() / batch_size
                 loss = cross_entropy(result, label)
 
                 val_accuracy += accuracy
