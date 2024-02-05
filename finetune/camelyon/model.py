@@ -3,21 +3,22 @@ from torch import nn
 from dinov2.models.vision_transformer import vit_base
 from dinov2.fsdp import FSDPCheckpointer
 class Model(nn.Module):
-    def __init__(self, backbone, emb_dim, num_classes):
+    def __init__(self, backbone, emb_dim, num_classes, n_sizes=2):
         super(Model, self).__init__()
         self.transformer = backbone
-        self.hidden_dim=1024
+        self.hidden_dim=128
         self.embed_dim = emb_dim
         self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim*2, num_classes))
+            nn.Linear(self.embed_dim*n_sizes, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, num_classes))
 
-    def forward(self, x1, x2):
-        output1 = self.transformer(x1, is_training=True)
-        cls1 = output1["x_norm_clstoken"]
-        output2 = self.transformer(x2, is_training=True)
-        cls2 = output2["x_norm_clstoken"]
+    def forward(self, *xs):
+        cls_tokens = (self.transformer(x, is_training=True)["x_norm_clstoken"] for x in xs)
         #average_patch = output["x_norm_patchtokens"].mean(axis=1)
-        concat = torch.cat((cls1, cls2), 1)
+        concat = torch.cat(tuple(cls_tokens), 1)
         x = self.classifier(concat)
         return x
 
@@ -34,7 +35,7 @@ def extract_teacher_weights(ordered_dict):
     return new_dict
 
 
-def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
+def init_model(classes, pretrained_path=None, teacher_checkpoint=True, n_sizes=2):
     vit_kwargs = dict(
         img_size=224,
         patch_size=16,
@@ -68,7 +69,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
             backbone.load_state_dict(state_dict)
 
     print(f"Embedding dimension: {emb_dim}")
-    model = Model(backbone, emb_dim, classes)
+    model = Model(backbone, emb_dim, classes, n_sizes)
     return model
 
 def load_model(classes, filename):
