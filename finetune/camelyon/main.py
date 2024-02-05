@@ -13,7 +13,7 @@ import h5py
 from .dataset import CamyleonDataset
 
 DEVICE = "cuda"
-EPOCHS = 10
+EPOCHS = 20
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000  # batches
 BATCH_SIZE = 32
@@ -22,9 +22,12 @@ LEARNING_RATE_CLASSIFIER = 1e-3
 LEARNING_RATE_FEATURES = 1e-4
 TRAIN_TRANSFORMER = False
 STEPS_PR_SCHEDULER_UPDATE = 1000
-SCHEDULER_STEPS_PER_EPOCH = 1
+SCHEDULER_STEPS_PER_EPOCH = 25
+SIZES = (64,512)
+EPOCH_MULTIPLIER=64
+
 CHECKPOINT_PATH = Path(
-    "weights/teacher_checkpoint-5.pth"
+    "weights/teacher_checkpoint-3.pth"
 )  # Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 PREPROCESSED_DATASET_PATH = Path("/home/espenbfo/Documents/projects/dinov2_wsi/camelyon.hdf5")
 FILENAME = "weights.pt"
@@ -38,8 +41,8 @@ def main():
     print("Cuda available?", torch.cuda.is_available())
 
     classes = (1, 2)
-    dataset_train = CamyleonDataset(PREPROCESSED_DATASET_PATH, iterations_per_epoch_multiplier=100)
-    dataset_val = CamyleonDataset(PREPROCESSED_DATASET_PATH, is_train=False, iterations_per_epoch_multiplier=100)
+    dataset_train = CamyleonDataset(PREPROCESSED_DATASET_PATH, sizes=SIZES, iterations_per_epoch_multiplier=EPOCH_MULTIPLIER)
+    dataset_val = CamyleonDataset(PREPROCESSED_DATASET_PATH,  sizes=SIZES, is_train=False, iterations_per_epoch_multiplier=EPOCH_MULTIPLIER)
 
     train_files = dataset_train.files["images"]
     val_files = dataset_val.files["images"]
@@ -47,7 +50,7 @@ def main():
     dataloader_train = load_dataloader(dataset_train, BATCH_SIZE, classes, True)
     dataloader_val = load_dataloader(dataset_val, BATCH_SIZE, classes, False)
 
-    model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True).to(DEVICE)
+    model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True, n_sizes = len(SIZES)).to(DEVICE)
 
     params = [{"params": model.classifier.parameters(), "lr": LEARNING_RATE_CLASSIFIER}]
 
