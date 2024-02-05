@@ -2,15 +2,31 @@ from torch.utils.data import Dataset
 from pathlib import Path
 from monai.data import WSIReader
 import torch
-from torchvision import transforms
 import numpy as np
 import cv2
 import h5py
+from monai import transforms
 
+def get_transforms(sizes, is_train):
+    keys = [i for i in range(len(sizes))]
+    base_transforms = [
+            transforms.ToTensord(keys=keys),
+            transforms.EnsureChannelFirstd(keys=keys, channel_dim=2),
+            transforms.ScaleIntensityRanged(
+                keys=keys, a_min=0, a_max=255, b_min=0, b_max=1, clip=True
+            ),
+            transforms.Resized(keys=keys, spatial_size=(224, 224), anti_aliasing=True)
+        ]
+    if (is_train):
+        return transforms.Compose(base_transforms + [
+            transforms.RandFlipd(keys=keys, prob=0.5),
+            transforms.RandRotate90d(keys=keys)
+        ])
+    return transforms.Compose(base_transforms)
 
 class CamyleonDataset(Dataset):
     def __init__(
-        self, preprocessed_data_file: Path | str, is_train=True, train_fraction=0.8, iterations_per_epoch_multiplier=100
+        self, preprocessed_data_file: Path | str, is_train=True, sizes=(100, 400), train_fraction=0.8, iterations_per_epoch_multiplier=100
     ) -> None:
         super().__init__()
         self.preprocessed_data = h5py.File(preprocessed_data_file, "r")
@@ -21,14 +37,11 @@ class CamyleonDataset(Dataset):
         self.is_train = is_train
         self.train_fraction = train_fraction
 
+        self.sizes = sizes
+
         self.files = self.find_valid_files()
 
-        self.transforms = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Resize((224, 224), antialias=False),
-            ]
-        )
+        self.transforms = get_transforms(sizes, is_train)
 
         self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
 
@@ -58,10 +71,10 @@ class CamyleonDataset(Dataset):
         return len(self.files["images"]) * self.iterations_per_epoch_multiplier
 
     def __getitem__(self, index) -> (torch.Tensor, torch.Tensor):
-        label = np.random.choice(self.labels)
+        label = np.random.choice(self.labels, p=(0.9, 0.1) if self.is_train else None)
         index, key = self.label_to_index[label][np.random.choice(len(self.label_to_index[label]))]
 
-        return self.retrieve_patch_with_label(label, index, key, (100, 400)), label
+        return self.retrieve_patch_with_label(label, index, key, self.sizes), label
 
     def get_image_and_mask(self, index):
         mask_filename = self.files["masks"][index]
@@ -104,7 +117,9 @@ class CamyleonDataset(Dataset):
         image_file = self.reader.read(image_filename)
 
         images = [self.get_patch_at_location(image_file, coords, size, 224, True) for size in sizes]
-        images = [self.transforms(image) for image in images]
+        image_dict = {i: image for i, image in enumerate(images)}
+        image_dict = self.transforms(image_dict)
+        images = [image for image in image_dict.values()]
         return images
 
     def get_patch_at_location(self, wsi, location, patch_physical_size, resolution, location_is_center=False):
