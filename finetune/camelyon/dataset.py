@@ -41,6 +41,8 @@ class CamyleonDataset(Dataset):
 
         self.files = self.find_valid_files()
 
+        self.random = np.random.default_rng(33)
+
         self.transforms = get_transforms(sizes, is_train)
 
         self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
@@ -71,8 +73,8 @@ class CamyleonDataset(Dataset):
         return len(self.files["images"]) * self.iterations_per_epoch_multiplier
 
     def __getitem__(self, index) -> (torch.Tensor, torch.Tensor):
-        label = np.random.choice(self.labels, p=(0.9, 0.1) if self.is_train else None)
-        index, key = self.label_to_index[label][np.random.choice(len(self.label_to_index[label]))]
+        label = self.random.choice(self.labels, p=(0.9, 0.1) if self.is_train else None)
+        index, key = self.label_to_index[label][self.random.choice(len(self.label_to_index[label]))]
 
         return self.retrieve_patch_with_label(label, index, key, self.sizes), label
 
@@ -94,7 +96,7 @@ class CamyleonDataset(Dataset):
 
     def find_random_area_with_label(self, mask: np.ndarray, label: int):
         valid_coords = np.argwhere(mask == label)
-        random_coord = valid_coords[np.random.choice(len(valid_coords))]
+        random_coord = valid_coords[self.random.choice(len(valid_coords))]
         mask_shape = mask.shape
 
         y, x = random_coord[0] / mask_shape[0], random_coord[1] / mask_shape[1]
@@ -110,7 +112,7 @@ class CamyleonDataset(Dataset):
 
         if label == 2:
             cancer_coords = self.preprocessed_data[key]["cancer"]
-            coords = cancer_coords[np.random.choice(len(cancer_coords))]
+            coords = cancer_coords[self.random.choice(len(cancer_coords))]
         else:
             coords = self.find_random_area_with_label(mask[0][0], label)
         image_filename = self.files["images"][index]
