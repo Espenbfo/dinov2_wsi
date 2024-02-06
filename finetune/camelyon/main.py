@@ -13,16 +13,16 @@ import h5py
 from .dataset import CamyleonDataset
 
 DEVICE = "cuda"
-EPOCHS = 20
+EPOCHS = 10
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000  # batches
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 CHECKPOINT_TIME = 20  # Minutes
 LEARNING_RATE_CLASSIFIER = 1e-3
-LEARNING_RATE_FEATURES = 1e-4
+LEARNING_RATE_FEATURES = 1e-3
 TRAIN_TRANSFORMER = False
 STEPS_PR_SCHEDULER_UPDATE = 1000
-SCHEDULER_STEPS_PER_EPOCH = 25
+SCHEDULER_STEPS_PER_EPOCH = 10
 SIZES = (64,512)
 EPOCH_MULTIPLIER=64
 
@@ -46,7 +46,7 @@ def main():
 
     train_files = dataset_train.files["images"]
     val_files = dataset_val.files["images"]
-    assert True not in [file in train_files for file in val_files]
+    assert True not in [file in train_files for file in val_files] # assert that there is no overlap between train and val
     dataloader_train = load_dataloader(dataset_train, BATCH_SIZE, classes, True)
     dataloader_val = load_dataloader(dataset_val, BATCH_SIZE, classes, False)
 
@@ -71,7 +71,7 @@ def main():
         print("epoch", epoch + 1)
         total_loss = 0
         print("TRAIN")
-        for index, (batch, label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train))):
+        for index, (batch, label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train), dynamic_ncols=True)):
             optimizer_classifier.zero_grad()
             batch = (x.to(DEVICE) for x in batch)
             label = label.to(DEVICE)
