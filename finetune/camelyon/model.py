@@ -6,10 +6,10 @@ class Model(nn.Module):
     def __init__(self, backbone, emb_dim, num_classes, n_sizes=2):
         super(Model, self).__init__()
         self.transformer = backbone
-        self.hidden_dim=128
+        self.hidden_dim=32
         self.embed_dim = emb_dim
         self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim*n_sizes, self.hidden_dim),
+            nn.Linear(self.embed_dim*n_sizes*2, self.hidden_dim),
             nn.SiLU(),
             nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.SiLU(),
@@ -17,8 +17,9 @@ class Model(nn.Module):
 
     def forward(self, *xs):
         cls_tokens = (self.transformer(x, is_training=True)["x_norm_clstoken"] for x in xs)
+        patch_tokens = (self.transformer(x, is_training=True)["x_norm_patchtokens"].mean(axis=1) for x in xs)
         #average_patch = output["x_norm_patchtokens"].mean(axis=1)
-        concat = torch.cat(tuple(cls_tokens), 1)
+        concat = torch.cat(tuple(cls_tokens)+tuple(patch_tokens), 1)
         x = self.classifier(concat)
         return x
 
@@ -29,7 +30,7 @@ def extract_teacher_weights(ordered_dict):
         if "teacher.backbone." in key:
             new_key = key.replace("teacher.backbone.", "")
             new_dict[new_key] = ordered_dict[key]
-        if "backbone." in key:
+        elif "backbone." in key:
             new_key = key.replace("backbone.", "")
             new_dict[new_key] = ordered_dict[key]
     return new_dict
