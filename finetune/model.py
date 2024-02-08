@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from dinov2.models.vision_transformer import vit_base
+from dinov2.fsdp import FSDPCheckpointer
 class Model(nn.Module):
     def __init__(self, backbone, emb_dim, num_classes):
         super(Model, self).__init__()
@@ -25,10 +26,13 @@ def extract_teacher_weights(ordered_dict):
         if "teacher.backbone." in key:
             new_key = key.replace("teacher.backbone.", "")
             new_dict[new_key] = ordered_dict[key]
+        if "backbone." in key:
+            new_key = key.replace("backbone.", "")
+            new_dict[new_key] = ordered_dict[key]
     return new_dict
 
 
-def init_model(classes, pretrained_path=None):
+def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
     vit_kwargs = dict(
         img_size=224,
         patch_size=16,
@@ -42,6 +46,7 @@ def init_model(classes, pretrained_path=None):
         interpolate_offset=0.1,
         interpolate_antialias=False,
     )
+    #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
     backbone = vit_base(**vit_kwargs)
 
     emb_dim = backbone.embed_dim
@@ -49,9 +54,16 @@ def init_model(classes, pretrained_path=None):
     if pretrained_path == "dino":
         backbone = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14_reg')
     elif pretrained_path is not None:
-        data = torch.load(pretrained_path)
-        state_dict = extract_teacher_weights(data["model"])
-        backbone.load_state_dict(state_dict)
+        if (teacher_checkpoint):
+            data = torch.load(pretrained_path)
+            print(data.keys())
+            state_dict = extract_teacher_weights(data["teacher"])
+            backbone.load_state_dict(state_dict)
+        else:
+            data = torch.load(pretrained_path)
+
+            state_dict = extract_teacher_weights(data["model"])
+            backbone.load_state_dict(state_dict)
 
     print(f"Embedding dimension: {emb_dim}]")
     model = Model(backbone, emb_dim, classes)
