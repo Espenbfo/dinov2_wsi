@@ -13,7 +13,7 @@ import h5py
 from .dataset import CamyleonDataset
 
 DEVICE = "cuda"
-EPOCHS = 10
+EPOCHS = 1*8
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000  # batches
 BATCH_SIZE = 128
@@ -23,14 +23,14 @@ LEARNING_RATE_FEATURES = 1e-3
 TRAIN_TRANSFORMER = False
 STEPS_PR_SCHEDULER_UPDATE = 1000
 SCHEDULER_STEPS_PER_EPOCH = 10
-SIZES = (64,512)
+SIZES = (64, 224)
 EPOCH_MULTIPLIER=64
 
 CHECKPOINT_PATH = Path(
-    "weights/teacher_checkpoint-3.pth"
+    "weights/teacher_checkpoint-7.pth"
 )  # Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 PREPROCESSED_DATASET_PATH = Path("/home/espenbfo/Documents/projects/dinov2_wsi/camelyon.hdf5")
-FILENAME = "weights.pt"
+FILENAME = "weights64224-2.pt"
 
 
 def load_dataloader(dataset, batch_size, classes, shuffle=True):
@@ -123,7 +123,7 @@ def main():
         print(
             f"Average batch loss: {val_loss/len(dataloader_val):.3f}, Average batch accuracy {val_accuracy/len(dataloader_val):.3f}"
         )
-
+        dataset_val.reset_rng()
         if not TRAIN_TRANSFORMER:
             model.classifier.train()
         else:

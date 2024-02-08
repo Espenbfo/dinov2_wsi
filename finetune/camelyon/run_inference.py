@@ -59,6 +59,10 @@ def infer_slide(slide_path, batch_size, model, distance_per_sample=100, sizes=(1
     predictions_arr = np.zeros(n_samples)
     ignored_arr = np.zeros(n_samples)
 
+    batch = [[] for _ in sizes]
+    batch_indexes = []
+
+    softmax = torch.nn.Softmax(dim=1)
     with torch.no_grad():
         # print(physical_size, n_samples, distance_between_samples, rest_size)
         with tqdm.tqdm(total=n_samples[0] * n_samples[1]) as pbar:
@@ -67,18 +71,31 @@ def infer_slide(slide_path, batch_size, model, distance_per_sample=100, sizes=(1
                     index = np.array([i, j])
                     coords = (rest_size / 2 + distance_per_sample * index) / physical_size
                     images = [get_patch_at_location(reader, slide_file, coords, size, 224, True) for size in sizes]
-                    images = [transforms(image).to("cuda").unsqueeze(dim=0) for image in images]
-                    if torch.std(images[0]) < 0.01:
-                        label = 0
+                    images = [transforms(image).to("cuda") for image in images]
+                    std = torch.std(images[0])
+                    if std < 0.02:
                         ignored_arr[i, j] = 1
+                        predictions_arr[i, j] = 0
+                        pbar.update(1)
+                        continue
                     else:
-                        pred = torch.nn.Softmax()(model(*images))
-                        pred = pred.detach().cpu()
-                        label = torch.argmax(pred[0])
-                        # label = 1 + 0.5 + pred[0][1]*0.5 - pred[0][0]*0.5
-                    predictions_arr[i, j] = label
-                    pbar.update(1)
-                    pbar.set_postfix_str(f"std: {torch.std(images[0]):.3f}")
+                        for h, image in enumerate(images):
+                            batch[h].append(image)
+                        batch_indexes.append((i,j))
+                        if len(batch[0])==batch_size:
+                            batch = (torch.stack(sub_batch) for sub_batch in batch)
+
+                            pred = model(*batch)
+                            pred = softmax(pred)
+                            pred = pred.detach().cpu()
+                            #label = torch.argmax(pred[0])
+                            labels = 0.5 + pred[:,1]*0.5 - pred[:,0]*0.5
+                            for indexes, label in zip(batch_indexes, labels):
+                                predictions_arr[indexes] = label
+                            batch = [[] for _ in sizes]
+                            batch_indexes = []
+                            pbar.update(batch_size)
+                    pbar.set_postfix_str(f"std: {std:.3f}")
     return predictions_arr, ignored_arr
 
 

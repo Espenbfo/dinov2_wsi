@@ -41,11 +41,17 @@ class CamyleonDataset(Dataset):
 
         self.files = self.find_valid_files()
 
-        self.random = np.random.default_rng(33)
+        self.rng_seed = 33
+        self.random = np.random.default_rng(self.rng_seed)
 
         self.transforms = get_transforms(sizes, is_train)
 
         self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
+
+        self.reset_rng()
+
+    def reset_rng(self):
+        self.random = np.random.default_rng(self.rng_seed)
 
     def find_valid_files(self):
         masks = []
