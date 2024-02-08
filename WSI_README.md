@@ -9,5 +9,5 @@ We have observed a speed up of the thumbnail sampling by a factor of 300-400 whe
 
 ## Preprocessing Camelyon for segmentation
 ```
-python finetune/camelyon/preprocess.py DATASET_FOLDER/images DATASET_FOLDER/masks camyleon.hdf5
+python finetune/camelyon/preprocess.py DATASET_FOLDER/images DATASET_FOLDER/masks camelyon.hdf5
 ```
