@@ -1,0 +1,48 @@
+# this corresponds to the default config
+train:
+  dataset_path: Wsi
+  batch_size_per_gpu: 32
+  centering: sinkhorn_knopp
+  cache_dataset: false
+  num_workers: 6
+  OFFICIAL_EPOCH_LENGTH: 2500
+  saveckp_freq: 25000
+student:
+  arch: vim_base
+  patch_size: 16
+  drop_path_rate: 0.4
+  ffn_layer: swiglufused
+  block_chunks: 1
+dino:
+  loss_weight: 1.0
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_nlayers: 3
+  head_hidden_dim: 1536
+  koleo_loss_weight: 0.1
+ibot:
+  loss_weight: 1.0
+  mask_sample_probability: 0.5
+  mask_ratio_min_max:
+  - 0.1
+  - 0.5
+  separate_head: true
+  head_n_prototypes: 16384
+  head_bottleneck_dim: 256
+  head_nlayers: 3
+  head_hidden_dim: 1536
+optim:
+  epochs: 100
+  weight_decay: 0.04
+  weight_decay_end: 0.4
+  base_lr: 0.004 #0.004  # learning rate for a batch size of 1024
+  lr: 0.  # will be set after applying scaling rule
+  warmup_epochs: 10 #10
+  min_lr: 1.0e-06
+  clip_grad: 1.0
+  freeze_last_layer_epochs: 1
+  scaling_rule: sqrt_wrt_1024
+  patch_embed_lr_mult: 0.2
+  layerwise_decay: 0.9
+  adamw_beta1: 0.9
+  adamw_beta2: 0.999
