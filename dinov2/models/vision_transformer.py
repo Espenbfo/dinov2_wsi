@@ -446,7 +446,7 @@ class Block(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
         self.mixer = mixer_cls(dim)
-        #self.norm = norm_cls(dim)
+        self.norm = nn.LayerNorm(dim)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         #if self.fused_add_norm:
         #    assert RMSNorm is not None, "RMSNorm import fails"
@@ -494,7 +494,7 @@ class Block(nn.Module):
         #            residual_in_fp32=self.residual_in_fp32,
         #            eps=self.norm.eps,
         #        )
-        hidden_states = self.mixer(nn.functional.layer_norm(residual, residual.shape[-2:]), inference_params=inference_params)
+        hidden_states = self.mixer(self.norm(residual), inference_params=inference_params)
         return hidden_states, residual
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
@@ -667,9 +667,7 @@ class VisionMamba(nn.Module):
         )
 
         # output head
-        self.norm_f = RMSNorm(
-            embed_dim, eps=norm_epsilon
-        )
+        self.norm = nn.LayerNorm(embed_dim)
 
         self.pre_logits = nn.Identity()
 
@@ -764,11 +762,10 @@ class VisionMamba(nn.Module):
 
             # Set prenorm=False here since we don't need the residual
 
-        if not self.fused_add_norm:
-            if residual is None:
-                residual = x
-            else:
-                residual = residual + self.drop_path(x)
+        if residual is None:
+            residual = x
+        else:
+            residual = residual + self.drop_path(x)
         #    x_norm = self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))
         #else:
         #    # Set prenorm=False here since we don't need the residual
@@ -784,7 +781,7 @@ class VisionMamba(nn.Module):
         #    )
 #
 
-        x_norm = nn.functional.layer_norm(residual, residual.shape[-2:])
+        x_norm = self.norm(residual)
         return {
             "x_norm_clstoken": x_norm[:, 0],
             "x_norm_regtokens": x_norm[:, 1: 1],
@@ -896,16 +893,51 @@ def vim_small_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_rope_also_resi
 
 
 @register_model
-def vim_base(patch_size=16, num_register_tokens=0, **kwargs):
+def vim_tiny(patch_size=16, num_register_tokens=0, **kwargs):
     model = VisionMamba(
-        patch_size=patch_size, embed_dim=768, depth=12, num_classes=0, rms_norm=True, residual_in_fp32=False, fused_add_norm=True,
+        patch_size=patch_size, embed_dim=192, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
         final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
+
+
     model.default_cfg = _cfg()
     pretrained = False
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
             url="to.do",
-            map_location="cpu", check_hash=True
-        )
+          )
+        model.load_state_dict(checkpoint["model"])
+    return model
+
+
+@register_model
+def vim_small(patch_size=16, num_register_tokens=0, **kwargs):
+    model = VisionMamba(
+        patch_size=patch_size, embed_dim=384, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
+        final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
+
+
+    model.default_cfg = _cfg()
+    pretrained = False
+    if pretrained:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="to.do",
+          )
+        model.load_state_dict(checkpoint["model"])
+    return model
+
+
+@register_model
+def vim_base(patch_size=16, num_register_tokens=0, **kwargs):
+    model = VisionMamba(
+        patch_size=patch_size, embed_dim=768, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
+        final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
+
+
+    model.default_cfg = _cfg()
+    pretrained = False
+    if pretrained:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="to.do",
+          )
         model.load_state_dict(checkpoint["model"])
     return model

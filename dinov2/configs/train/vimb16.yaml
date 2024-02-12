@@ -1,10 +1,10 @@
 # this corresponds to the default config
 train:
   dataset_path: Wsi
-  batch_size_per_gpu: 16
+  batch_size_per_gpu: 32
   centering: sinkhorn_knopp
   cache_dataset: false
-  num_workers: 8
+  num_workers: 6
   OFFICIAL_EPOCH_LENGTH: 2500
   saveckp_freq: 25000
 student:
@@ -39,7 +39,7 @@ optim:
   lr: 0.  # will be set after applying scaling rule
   warmup_epochs: 10 #10
   min_lr: 1.0e-06
-  clip_grad: 3.0
+  clip_grad: 1.0
   freeze_last_layer_epochs: 1
   scaling_rule: sqrt_wrt_1024
   patch_embed_lr_mult: 0.2

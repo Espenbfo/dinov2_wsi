@@ -135,7 +135,12 @@ def do_train(cfg, model, resume=False):
     model.train()
     inputs_dtype = torch.half
     fp16_scaler = model.fp16_scaler  # for mixed precision training
+    sum_params = 0
 
+    for name, param in model.student.backbone.named_parameters():
+        # print("\n\n")
+        sum_params += torch.numel(param)
+    print("Num Params:", sum_params)
     # setup optimizer
 
     optimizer = build_optimizer(cfg, model.get_params_groups())
