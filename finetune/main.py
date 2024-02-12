@@ -18,20 +18,20 @@ CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
 BATCH_SIZE = 32
 CHECKPOINT_TIME = 20 # Minutes
-LEARNING_RATE_CLASSIFIER =1e-4
+LEARNING_RATE_CLASSIFIER =1e-3
 LEARNING_RATE_FEATURES = 1e-4
 FILENAME = "weights.pt"
 TRAIN_TRANSFORMER = False
 GRAD_CLIP_VALUE = 0.0
 STEPS_PR_SCHEDULER_UPDATE = 1000
-SCHEDULER_GAMMA = 0.70
+SCHEDULER_STEPS_PER_EPOCH = 8
 TRAIN_X_PATH = Path("/home/espenbfo/datasets/classification/pcam/training_split.h5")
 TRAIN_Y_PATH = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_train_y.h5")
 TRAIN_X_PATH_VAL = Path("/home/espenbfo/datasets/classification/pcam/validation_split.h5")
 TRAIN_Y_PATH_VAL = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_valid_y.h5")
 TRAIN_X_PATH_TEST = Path("/home/espenbfo/datasets/classification/pcam/test_split.h5")
 TRAIN_Y_PATH_TEST = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_test_y.h5")
-CHECKPOINT_PATH = Path("/home/espenbfo/results/model_0178499.rank_0.pth")
+CHECKPOINT_PATH = "dino"#Path("weights/teacher_checkpoint-7.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 def main():
     print("Cuda available?", torch.cuda.is_available())
 
@@ -70,7 +70,7 @@ def main():
     if CONTINUE_TRAINING:
         model = load_model(len(classes), "weights.pt").to(DEVICE)
     else:
-        model = init_model(len(classes), CHECKPOINT_PATH).to(DEVICE)
+        model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True).to(DEVICE)
     model.transformer.eval()
     params = [{"params": model.classifier.parameters(), "lr": LEARNING_RATE_CLASSIFIER}]
 
@@ -81,7 +81,7 @@ def main():
         for parameter in model.transformer.parameters():
             parameter.requires_grad = False
     optimizer_classifier = Adam(params)
-    scheduler = CosineAnnealingLR(optimizer_classifier, T_max=EPOCHS)
+    scheduler = CosineAnnealingLR(optimizer_classifier, T_max=EPOCHS*SCHEDULER_STEPS_PER_EPOCH)
     with open("classes.json", "w") as f:
         json.dump(classes, f)
 
@@ -92,7 +92,7 @@ def main():
         print("epoch", epoch+1)
         total_loss = 0
         print("TRAIN")
-        for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train))):
+        for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train), dynamic_ncols=True)):
             optimizer_classifier.zero_grad()
             batch = batch.to(DEVICE)
             label = label.to(DEVICE)
@@ -118,9 +118,8 @@ def main():
             if (time.time() > checkpoint_time+CHECKPOINT_TIME*60):
                 torch.save(model.state_dict(), FILENAME)
                 checkpoint_time = time.time()
-            if ((index+1)%STEPS_PR_SCHEDULER_UPDATE == 0):
-                pass
-        scheduler.step()
+            if ((index+1)%(len(dataloader_train)//SCHEDULER_STEPS_PER_EPOCH) == 0):
+                scheduler.step()
 
         if not TRAIN_TRANSFORMER:
             model.classifier.eval()

@@ -16,3 +16,6 @@ wheel
 rope
 timm
 mamba_ssm
+tifffile
+imagecodecs
+h5py
