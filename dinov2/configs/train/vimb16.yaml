@@ -4,15 +4,15 @@ train:
   batch_size_per_gpu: 32
   centering: sinkhorn_knopp
   cache_dataset: false
-  num_workers: 8
-  OFFICIAL_EPOCH_LENGTH: 1250
-  saveckp_freq: 2000
+  num_workers: 6
+  OFFICIAL_EPOCH_LENGTH: 2500
+  saveckp_freq: 25000
 student:
   arch: vim_base
   patch_size: 16
   drop_path_rate: 0.4
   ffn_layer: swiglufused
-  block_chunks: 4
+  block_chunks: 1
 dino:
   loss_weight: 1.0
   head_n_prototypes: 16384
@@ -35,11 +35,11 @@ optim:
   epochs: 100
   weight_decay: 0.04
   weight_decay_end: 0.4
-  base_lr: 0.004  # learning rate for a batch size of 1024
+  base_lr: 0.004 #0.004  # learning rate for a batch size of 1024
   lr: 0.  # will be set after applying scaling rule
-  warmup_epochs: 10
+  warmup_epochs: 10 #10
   min_lr: 1.0e-06
-  clip_grad: 3.0
+  clip_grad: 1.0
   freeze_last_layer_epochs: 1
   scaling_rule: sqrt_wrt_1024
   patch_embed_lr_mult: 0.2

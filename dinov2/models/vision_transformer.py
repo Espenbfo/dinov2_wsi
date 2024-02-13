@@ -446,13 +446,13 @@ class Block(nn.Module):
         self.residual_in_fp32 = residual_in_fp32
         self.fused_add_norm = fused_add_norm
         self.mixer = mixer_cls(dim)
-        self.norm = norm_cls(dim)
+        self.norm = nn.LayerNorm(dim)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        if self.fused_add_norm:
-            assert RMSNorm is not None, "RMSNorm import fails"
-            assert isinstance(
-                self.norm, (nn.LayerNorm, RMSNorm)
-            ), "Only LayerNorm and RMSNorm are supported for fused_add_norm"
+        #if self.fused_add_norm:
+        #    assert RMSNorm is not None, "RMSNorm import fails"
+        #    assert isinstance(
+        #        self.norm, (nn.LayerNorm, RMSNorm)
+        #    ), "Only LayerNorm and RMSNorm are supported for fused_add_norm"
 
     def forward(
             self, hidden_states: Tensor, residual: Optional[Tensor] = None, inference_params=None
@@ -463,38 +463,38 @@ class Block(nn.Module):
             hidden_states: the sequence to the encoder layer (required).
             residual: hidden_states = Mixer(LN(residual))
         """
-        if not self.fused_add_norm:
-            if residual is None:
-                residual = hidden_states
-            else:
-                residual = residual + self.drop_path(hidden_states)
-
-            hidden_states = self.norm(residual.to(dtype=self.norm.weight.dtype))
-            if self.residual_in_fp32:
-                residual = residual.to(torch.float32)
+        #if not self.fused_add_norm:
+        if residual is None:
+            residual = hidden_states
         else:
-            fused_add_norm_fn = rms_norm_fn if isinstance(self.norm, RMSNorm) else layer_norm_fn
-            if residual is None:
-                hidden_states, residual = fused_add_norm_fn(
-                    hidden_states,
-                    self.norm.weight,
-                    self.norm.bias,
-                    residual=residual,
-                    prenorm=True,
-                    residual_in_fp32=self.residual_in_fp32,
-                    eps=self.norm.eps,
-                )
-            else:
-                hidden_states, residual = fused_add_norm_fn(
-                    self.drop_path(hidden_states),
-                    self.norm.weight,
-                    self.norm.bias,
-                    residual=residual,
-                    prenorm=True,
-                    residual_in_fp32=self.residual_in_fp32,
-                    eps=self.norm.eps,
-                )
-        hidden_states = self.mixer(hidden_states, inference_params=inference_params)
+            residual = residual + self.drop_path(hidden_states)
+#
+        #    hidden_states = self.norm(residual.to(dtype=self.norm.weight.dtype))
+        #    if self.residual_in_fp32:
+        #        residual = residual.to(torch.float32)
+        #else:
+        #    fused_add_norm_fn = rms_norm_fn if isinstance(self.norm, RMSNorm) else layer_norm_fn
+        #    if residual is None:
+        #        hidden_states, residual = fused_add_norm_fn(
+        #            hidden_states,
+        #            self.norm.weight,
+        #            self.norm.bias,
+        #            residual=residual,
+        #            prenorm=True,
+        #            residual_in_fp32=self.residual_in_fp32,
+        #            eps=self.norm.eps,
+        #        )
+        #    else:
+        #        hidden_states, residual = fused_add_norm_fn(
+        #            self.drop_path(hidden_states),
+        #            self.norm.weight,
+        #            self.norm.bias,
+        #            residual=residual,
+        #            prenorm=True,
+        #            residual_in_fp32=self.residual_in_fp32,
+        #            eps=self.norm.eps,
+        #        )
+        hidden_states = self.mixer(self.norm(residual), inference_params=inference_params)
         return hidden_states, residual
 
     def allocate_inference_cache(self, batch_size, max_seqlen, dtype=None, **kwargs):
@@ -517,9 +517,9 @@ def create_block(
     if ssm_cfg is None:
         ssm_cfg = {}
     factory_kwargs = {"device": device, "dtype": dtype}
-    mixer_cls = partial(Mamba, layer_idx=layer_idx, **ssm_cfg, **factory_kwargs)
+    mixer_cls = partial(Mamba, layer_idx=layer_idx, bimamba_type=bimamba_type, **ssm_cfg, **factory_kwargs)
     norm_cls = partial(
-        nn.LayerNorm
+        RMSNorm, eps=norm_epsilon, **factory_kwargs
     )
     block = Block(
         d_model,
@@ -570,10 +570,10 @@ def segm_init_weights(m):
     if isinstance(m, nn.Linear):
         trunc_normal_(m.weight, std=0.02)
         if isinstance(m, nn.Linear) and m.bias is not None:
-            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.bias, 1e-5)
     elif isinstance(m, nn.LayerNorm):
         nn.init.constant_(m.bias, 0)
-        nn.init.constant_(m.weight, 1.0)
+        #nn.init.constant_(m.weight, 1.0)
 
 
 class VisionMamba(nn.Module):
@@ -633,20 +633,14 @@ class VisionMamba(nn.Module):
 
         if if_cls_token:
             self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
+            nn.init.normal_(self.cls_token, std=1e-6)
 
         if if_abs_pos_embed:
             self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, self.embed_dim))
+            trunc_normal_(self.pos_embed, std=0.02)
             self.pos_drop = nn.Dropout(p=drop_rate)
 
-        if if_rope:
-            half_head_dim = embed_dim // 2
-            hw_seq_len = img_size // patch_size
-            self.rope = VisionRotaryEmbeddingFast(
-                dim=half_head_dim,
-                pt_seq_len=pt_hw_seq_len,
-                ft_seq_len=hw_seq_len
-            )
-        self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = nn.Identity()
 
         # TODO: release this comment
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
@@ -673,9 +667,7 @@ class VisionMamba(nn.Module):
         )
 
         # output head
-        self.norm_f = nn.LayerNorm(
-            embed_dim, eps=1e-6
-        )
+        self.norm = nn.LayerNorm(embed_dim)
 
         self.pre_logits = nn.Identity()
 
@@ -763,19 +755,38 @@ class VisionMamba(nn.Module):
         residual = None
         hidden_states = x
         for layer in self.layers:
+
             x, residual = layer(
                 x, residual, inference_params=inference_params
             )
 
             # Set prenorm=False here since we don't need the residual
-        fused_add_norm_fn = rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
-        x_norm = self.norm_f(x)
 
+        if residual is None:
+            residual = x
+        else:
+            residual = residual + self.drop_path(x)
+        #    x_norm = self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))
+        #else:
+        #    # Set prenorm=False here since we don't need the residual
+        #    fused_add_norm_fn = rms_norm_fn if isinstance(self.norm_f, RMSNorm) else layer_norm_fn
+        #    x_norm = fused_add_norm_fn(
+        #        self.drop_path(x),
+        #        self.norm_f.weight,
+        #        self.norm_f.bias,
+        #        eps=self.norm_f.eps,
+        #        residual=residual,
+        #        prenorm=False,
+        #        residual_in_fp32=self.residual_in_fp32,
+        #    )
+#
+
+        x_norm = self.norm(residual)
         return {
             "x_norm_clstoken": x_norm[:, 0],
             "x_norm_regtokens": x_norm[:, 1: 1],
             "x_norm_patchtokens": x_norm[:, 1:],
-            "x_prenorm": x,
+            "x_prenorm": residual,
             "masks": masks}
 
         # return only cls token if it exists
@@ -798,7 +809,7 @@ class VisionMamba(nn.Module):
         x = self.forward_features(x, inference_params, *args, **kwargs)
         if is_training:
             return x
-        x = self.head(x)
+        x = self.head(x["x_norm_clstoken"])
         return x
 
 
@@ -882,16 +893,51 @@ def vim_small_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_rope_also_resi
 
 
 @register_model
-def vim_base(patch_size=16, num_register_tokens=0, **kwargs):
+def vim_tiny(patch_size=16, num_register_tokens=0, **kwargs):
     model = VisionMamba(
-        patch_size=patch_size, embed_dim=768, depth=12, rms_norm=False, residual_in_fp32=True, fused_add_norm=True,
+        patch_size=patch_size, embed_dim=192, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
         final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
+
+
     model.default_cfg = _cfg()
     pretrained = False
     if pretrained:
         checkpoint = torch.hub.load_state_dict_from_url(
             url="to.do",
-            map_location="cpu", check_hash=True
-        )
+          )
+        model.load_state_dict(checkpoint["model"])
+    return model
+
+
+@register_model
+def vim_small(patch_size=16, num_register_tokens=0, **kwargs):
+    model = VisionMamba(
+        patch_size=patch_size, embed_dim=384, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
+        final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
+
+
+    model.default_cfg = _cfg()
+    pretrained = False
+    if pretrained:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="to.do",
+          )
+        model.load_state_dict(checkpoint["model"])
+    return model
+
+
+@register_model
+def vim_base(patch_size=16, num_register_tokens=0, **kwargs):
+    model = VisionMamba(
+        patch_size=patch_size, embed_dim=768, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
+        final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
+
+
+    model.default_cfg = _cfg()
+    pretrained = False
+    if pretrained:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="to.do",
+          )
         model.load_state_dict(checkpoint["model"])
     return model

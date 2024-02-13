@@ -3,19 +3,23 @@ from torch import nn
 from dinov2.models.vision_transformer import vit_base
 from dinov2.fsdp import FSDPCheckpointer
 class Model(nn.Module):
-    def __init__(self, backbone, emb_dim, num_classes):
+    def __init__(self, backbone, emb_dim, num_classes, n_sizes=2):
         super(Model, self).__init__()
         self.transformer = backbone
-        self.hidden_dim=1024
+        self.hidden_dim=32
         self.embed_dim = emb_dim
         self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim*2, num_classes))
+            nn.Linear(self.embed_dim*n_sizes*2, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.SiLU(),
+            nn.Linear(self.hidden_dim, num_classes))
 
-    def forward(self, x):
-        output = self.transformer(x, is_training=True)
-        cls = output["x_norm_clstoken"]
-        average_patch = output["x_norm_patchtokens"].mean(axis=1)
-        concat = torch.cat((cls, average_patch), 1)
+    def forward(self, *xs):
+        cls_tokens = (self.transformer(x, is_training=True)["x_norm_clstoken"] for x in xs)
+        patch_tokens = (self.transformer(x, is_training=True)["x_norm_patchtokens"].mean(axis=1) for x in xs)
+        #average_patch = output["x_norm_patchtokens"].mean(axis=1)
+        concat = torch.cat(tuple(cls_tokens)+tuple(patch_tokens), 1)
         x = self.classifier(concat)
         return x
 
@@ -26,13 +30,13 @@ def extract_teacher_weights(ordered_dict):
         if "teacher.backbone." in key:
             new_key = key.replace("teacher.backbone.", "")
             new_dict[new_key] = ordered_dict[key]
-        if "backbone." in key:
+        elif "backbone." in key:
             new_key = key.replace("backbone.", "")
             new_dict[new_key] = ordered_dict[key]
     return new_dict
 
 
-def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
+def init_model(classes, pretrained_path=None, teacher_checkpoint=True, n_sizes=2):
     vit_kwargs = dict(
         img_size=224,
         patch_size=16,
@@ -65,8 +69,8 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
             state_dict = extract_teacher_weights(data["model"])
             backbone.load_state_dict(state_dict)
 
-    print(f"Embedding dimension: {emb_dim}]")
-    model = Model(backbone, emb_dim, classes)
+    print(f"Embedding dimension: {emb_dim}")
+    model = Model(backbone, emb_dim, classes, n_sizes)
     return model
 
 def load_model(classes, filename):
