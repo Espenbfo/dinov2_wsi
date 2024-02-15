@@ -101,7 +101,7 @@ class CamyleonDataset(Dataset):
         return (image_patch[0], mask_patch[0])
 
     def find_random_area_with_label(self, mask: np.ndarray, label: int):
-        valid_coords = np.argwhere(mask == label)
+        valid_coords = np.argwhere(mask == label)+0.5
         random_coord = valid_coords[self.random.choice(len(valid_coords))]
         mask_shape = mask.shape
 
