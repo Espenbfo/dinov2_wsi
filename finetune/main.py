@@ -21,8 +21,8 @@ LEARNING_RATE_CLASSIFIER =1e-3
 LEARNING_RATE_FEATURES = 1e-4
 FILENAME = "weights.pt"
 TRAIN_TRANSFORMER = False
-
-DATASET = "wilds" # One of PCam, wilds
+EARLY_STOPPING_MEMORY = 10
+DATASET = "PCam" # One of PCam, wilds
 
 match DATASET:
     case "PCam":
@@ -73,7 +73,7 @@ def main():
         loss_arr = np.zeros(loss_memory)
         acc_arr = np.zeros(loss_memory)
 
-        for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train), dynamic_ncols=True, colour=color)):
+        for index, (batch,label) in (pbar := tqdm(enumerate(dataloader), total=len(dataloader), dynamic_ncols=True, colour=color)):
             if is_train:
                 optimizer_classifier.zero_grad()
             batch_size = batch.shape[0]
@@ -92,14 +92,14 @@ def main():
             loss_arr[-1] = loss.detach().cpu()
             acc_arr = np.roll(acc_arr, -1)
             acc_arr[-1] = accuracy
-            loss = loss_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
-            accuracy = acc_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
+            loss = loss_arr[max(loss_memory-index-1,0):loss_memory].mean()
+            accuracy = acc_arr[max(loss_memory-index-1,0):loss_memory].mean()
 
             if is_train:
                 learning_rates = scheduler.get_last_lr()
-                pbar.postfix = f"mean loss the last {min(index+1, LOSS_MEMORY)} batches {loss:.3f} | accuracy {accuracy:.3f} | Learning rate {learning_rates[0]:.2g}"
+                pbar.postfix = f"mean loss the last {min(index+1, loss_memory)} batches {loss:.3f} | accuracy {accuracy:.3f} | Learning rate {learning_rates[0]:.2g}"
             else:
-                pbar.postfix = f"mean loss the last {min(index+1, LOSS_MEMORY)} batches {loss:.3f} | accuracy {accuracy:.3f}"
+                pbar.postfix = f"mean loss the last {min(index+1, loss_memory)} batches {loss:.3f} | accuracy {accuracy:.3f}"
         final_loss = loss_arr.mean()
         final_accuracy = acc_arr.mean()
 
@@ -111,7 +111,7 @@ def main():
         total_loss = 0
         print("TRAIN")
         train_loss, train_accuracy = run_epoch(dataloader_train, is_train=True, loss_memory=LOSS_MEMORY, color="green")
-        print(f"Train loss {train_loss:.2f} | train accuracy {train_accuracy:.2f}")
+        print(f"Train loss {train_loss:.3f} | train accuracy {train_accuracy:.3f}")
         scheduler.step()
         if not TRAIN_TRANSFORMER:
             model.classifier.eval()
@@ -122,12 +122,17 @@ def main():
         val_loss = 0
         with torch.no_grad():
             val_loss, val_accuracy = run_epoch(dataloader_val, is_train=False, color="blue")
-        print(f"Validation loss {val_loss:.2f} | validation accuracy {val_accuracy:.2f}")
+        print(f"Validation loss {val_loss:.3f} | validation accuracy {val_accuracy:.3f}")
 
-        if val_loss+0.01 > best_val_loss:
-            print("Validation loss got worse")
-            break
-        best_val_loss = min(val_loss, best_val_loss)
+        if (val_loss > best_val_loss):
+            print("Val loss did not improve")
+            epochs_since_improvement += 1
+            if epochs_since_improvement == EARLY_STOPPING_MEMORY:
+                break
+        else:
+            best_val_loss = val_loss
+            epochs_since_improvement = 0
+            torch.save(model.state_dict(), FILENAME)
         
         if not TRAIN_TRANSFORMER:
             model.classifier.train()
@@ -137,7 +142,7 @@ def main():
     print("TEST")
     with torch.no_grad():
         test_loss, test_accuracy = run_epoch(dataloader_test, is_train=False, color="red")
-    print(f"Test loss {test_loss:.2f} | test accuracy {test_accuracy:.2f}")
+    print(f"Test loss {test_loss:.3f} | test accuracy {test_accuracy:.3f}")
 
 if __name__ == "__main__":
     main()
