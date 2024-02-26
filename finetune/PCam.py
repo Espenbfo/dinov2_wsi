@@ -21,6 +21,6 @@ def load_dataset_from_h5(h5_path_x, h5_path_y):
     return PathologyDataset(train_x, train_y)
 
 def get_pcam_datasets():
-    train, val, test = load_dataset_from_h5(TRAIN_X_PATH, TRAIN_Y_PATH), load_dataset_from_h5(TRAIN_X_PATH_VAL, TRAIN_Y_PATH_VAL), load_dataset_from_h5(TRAIN_X_PATH_VAL, TRAIN_Y_PATH_VAL)
+    train, val, test = load_dataset_from_h5(TRAIN_X_PATH, TRAIN_Y_PATH), load_dataset_from_h5(TRAIN_X_PATH_VAL, TRAIN_Y_PATH_VAL), load_dataset_from_h5(TRAIN_X_PATH_TEST, TRAIN_Y_PATH_TEST)
 
     return train, val, test
