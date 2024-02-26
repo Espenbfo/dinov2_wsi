@@ -6,7 +6,6 @@ class Model(nn.Module):
     def __init__(self, backbone, emb_dim, num_classes):
         super(Model, self).__init__()
         self.transformer = backbone
-        self.hidden_dim=1024
         self.embed_dim = emb_dim
         self.classifier = nn.Sequential(
             nn.Linear(self.embed_dim*2, num_classes))
@@ -16,6 +15,7 @@ class Model(nn.Module):
         cls = output["x_norm_clstoken"]
         average_patch = output["x_norm_patchtokens"].mean(axis=1)
         concat = torch.cat((cls, average_patch), 1)
+        concat = torch.nn.functional.layer_norm(concat, (concat.shape[1],))
         x = self.classifier(concat)
         return x
 
