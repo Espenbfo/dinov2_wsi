@@ -3,7 +3,7 @@ from tqdm import tqdm
 
 from .dataset import PathologyDataset, load_datasets, load_dataloader
 from .model import init_model, load_model
-from torch.optim import Adam
+from torch.optim import Adam, SGD, AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.functional import cross_entropy
 import json
@@ -18,11 +18,13 @@ CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
 BATCH_SIZE = 32
 LEARNING_RATE_CLASSIFIER =1e-3
-LEARNING_RATE_FEATURES = 1e-4
-FILENAME = "weights.pt"
+LEARNING_RATE_FEATURES = 1e-3
+FILENAME = "weights_1_epoch.pt"
 TRAIN_TRANSFORMER = False
-EARLY_STOPPING_MEMORY = 10
-DATASET = "PCam" # One of PCam, wilds
+EARLY_STOPPING_MEMORY = 15
+DATASET = "wilds" # One of PCam, wilds
+MODEL_MODE = "phikon" # One of "normal", "dino" for dinov2 trained on natural images, or "phikon" for the phikon model
+CHECKPOINT_PATH = Path("weights/a100_full_37499.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 
 match DATASET:
     case "PCam":
@@ -30,7 +32,6 @@ match DATASET:
     case "wilds":
         from .wilds_dataset import get_wilds_datasets
 
-CHECKPOINT_PATH = Path("weights/teacher_checkpoint-8.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 def main():
     print("Cuda available?", torch.cuda.is_available())
 
@@ -50,9 +51,12 @@ def main():
     dataloader_test = load_dataloader(dataset_test, BATCH_SIZE, classes, False)
 
     if CONTINUE_TRAINING:
-        model = load_model(len(classes), "weights.pt").to(DEVICE)
+        model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True, mode=MODEL_MODE).to(DEVICE)
+        weights = torch.load("weights_full.pt")
+        model.load_state_dict(weights)
+        print("Continuing Training")
     else:
-        model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True).to(DEVICE)
+        model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True, mode=MODEL_MODE).to(DEVICE)
     model.transformer.eval()
     params = [{"params": model.classifier.parameters(), "lr": LEARNING_RATE_CLASSIFIER}]
 
@@ -62,7 +66,7 @@ def main():
     else:
         for parameter in model.transformer.parameters():
             parameter.requires_grad = False
-    optimizer_classifier = Adam(params)
+    optimizer_classifier = AdamW(params, weight_decay=0.01)
     scheduler = CosineAnnealingLR(optimizer_classifier, T_max=EPOCHS)
     with open("classes.json", "w") as f:
         json.dump(classes, f)
@@ -141,6 +145,8 @@ def main():
 
     print("TEST")
     with torch.no_grad():
+        state_dict = torch.load(FILENAME)
+        model.load_state_dict(state_dict)
         test_loss, test_accuracy = run_epoch(dataloader_test, is_train=False, color="red")
     print(f"Test loss {test_loss:.3f} | test accuracy {test_accuracy:.3f}")
 
