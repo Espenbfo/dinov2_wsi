@@ -9,6 +9,12 @@ from torchvision.transforms import ToTensor
 from PIL import Image
 import h5py
 
+def inverse_quadratically_distributed_random_number(lower, higher):
+    r = np.random.random()
+
+    return higher*lower/(higher+r*(lower-higher))
+
+
 class WSIDataset(VisionDataset):
     def __init__(
         self,
@@ -45,7 +51,7 @@ class WSIDataset(VisionDataset):
     def __getitem__(self, index):
         index //= self.samples_pr_slide_pr_epoch
         path = self.files[index]
-        physical_size = np.random.randint(
+        physical_size = inverse_quadratically_distributed_random_number(
             self.min_physical_size, self.max_physical_size
         )
         patch = self.random_valid_patch(path, physical_size, self.base_resolution)
