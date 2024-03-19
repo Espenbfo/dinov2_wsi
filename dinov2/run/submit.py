@@ -98,7 +98,7 @@ def submit_jobs(task_class, args, name: str):
 
     kwargs = {}
     if args.use_80g:
-        kwargs["slurm_constraint"] = "gpu80g"
+        kwargs["slurm_constraint"] = "a100"
     if args.comment:
         kwargs["slurm_comment"] = args.comment
     if args.exclude:
