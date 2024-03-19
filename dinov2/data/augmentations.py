@@ -76,7 +76,6 @@ class DataAugmentationDINO(object):
         global_transfo2_extra = transforms.Compose(
             [
                 GaussianBlur(p=0.1),
-                transforms.RandomSolarize(threshold=128, p=0.2),
             ]
         )
 
