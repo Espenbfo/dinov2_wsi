@@ -426,7 +426,7 @@ __all__ = [
 ]
 
 
-class Block(nn.Module):
+class MambaBlock(nn.Module):
     def __init__(
             self, dim, mixer_cls, norm_cls=nn.LayerNorm, fused_add_norm=False, residual_in_fp32=False, drop_path=0.,
     ):
@@ -521,7 +521,7 @@ def create_block(
     norm_cls = partial(
         RMSNorm, eps=norm_epsilon, **factory_kwargs
     )
-    block = Block(
+    block = MambaBlock(
         d_model,
         mixer_cls,
         norm_cls=norm_cls,
@@ -929,7 +929,7 @@ def vim_small(patch_size=16, num_register_tokens=0, **kwargs):
 @register_model
 def vim_base(patch_size=16, num_register_tokens=0, **kwargs):
     model = VisionMamba(
-        patch_size=patch_size, embed_dim=768, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
+        patch_size=patch_size, embed_dim=512, depth=36, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
         final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
 
 
@@ -941,3 +941,15 @@ def vim_base(patch_size=16, num_register_tokens=0, **kwargs):
           )
         model.load_state_dict(checkpoint["model"])
     return model
+
+from .vision_mamba import vim_tiny_orig as vto
+from .vision_mamba import vim_base_orig as vbo
+
+
+@register_model
+def vim_tiny_orig(patch_size=16, num_register_tokens=0, **kwargs):
+    return vto(patch_size=patch_size, num_register_tokens=num_register_tokens, **kwargs)
+
+@register_model
+def vim_base_orig(patch_size=16, num_register_tokens=0, **kwargs):
+    return vbo(patch_size=patch_size, num_register_tokens=num_register_tokens, **kwargs)

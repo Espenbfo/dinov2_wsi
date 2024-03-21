@@ -354,12 +354,7 @@ class SSLMetaArch(nn.Module):
         #    print(p.grad)
 #
         #print("backbone grad")
-#
-        for name, param in self.student.backbone.named_parameters():
-            #print("\n\n")
-            if param.requires_grad:
-                if param.grad.isnan().any():
-                    print(name, param.grad)
+
 
 
 
