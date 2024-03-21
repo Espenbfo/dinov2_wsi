@@ -24,4 +24,4 @@ class WildsDataset(Dataset):
 def get_wilds_datasets():
     full_dataset = wilds.get_dataset(root_dir=WILDS_PATH, dataset="camelyon17")
     
-    return WildsDataset(full_dataset.get_subset("train", transform=transf)), WildsDataset(full_dataset.get_subset("id_val",  transform=transf)), WildsDataset(full_dataset.get_subset("test",  transform=transf))
+    return WildsDataset(full_dataset.get_subset("train", transform=transf)), WildsDataset(full_dataset.get_subset("val",  transform=transf)), WildsDataset(full_dataset.get_subset("test",  transform=transf))
