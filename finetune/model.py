@@ -40,6 +40,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
     is_phikon = False
     if mode == "dino":
         backbone = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14_reg')
+        emb_dim = backbone.embed_dim
     elif mode == "phikon":
         from HistoSSLscaling.rl_benchmarks.models.feature_extractors.ibot_vit import iBOTViT
         backbone = iBOTViT(weights_path="weights/ibot_vit_base_pancan.pth", encoder="student")
@@ -60,7 +61,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
             interpolate_antialias=False,
         )
         #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
-        backbone = vit_base(**vit_kwargs)
+        backbone = vmamba_small(**vit_kwargs)
 
         emb_dim = backbone.embed_dim
         if (teacher_checkpoint):

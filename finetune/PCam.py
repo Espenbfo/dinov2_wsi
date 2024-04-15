@@ -2,7 +2,7 @@ from pathlib import Path
 import h5py
 
 from .dataset import PathologyDataset
-PCAM_BASE_PATH = Path("/home/espenbfo/datasets/classification")
+PCAM_BASE_PATH = Path("/home/bgstovel/datasets/classification")
 
 TRAIN_X_PATH = PCAM_BASE_PATH / "pcam/training_split.h5"
 TRAIN_Y_PATH = PCAM_BASE_PATH / "Labels/Labels/camelyonpatch_level_2_split_train_y.h5"

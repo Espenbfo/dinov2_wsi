@@ -2,7 +2,7 @@ from pathlib import Path
 import wilds
 from torchvision import transforms
 from torch.utils.data import Dataset
-WILDS_PATH = "/home/espenbfo/datasets/wilds"
+WILDS_PATH = "/home/bgstovel/datasets/wilds"
 
 transf = transforms.Compose([
     transforms.ToTensor(),
@@ -22,6 +22,6 @@ class WildsDataset(Dataset):
     def __getitem__(self, index):
         return self.subset[index][:2]
 def get_wilds_datasets():
-    full_dataset = wilds.get_dataset(root_dir=WILDS_PATH, dataset="camelyon17")
+    full_dataset = wilds.get_dataset(root_dir=WILDS_PATH, dataset="camelyon17", download=True)
     
     return WildsDataset(full_dataset.get_subset("train", transform=transf)), WildsDataset(full_dataset.get_subset("id_val",  transform=transf)), WildsDataset(full_dataset.get_subset("test",  transform=transf))
