@@ -5,7 +5,7 @@ import random
 import numpy as np
 import cv2
 from torchvision.datasets import VisionDataset
-from torchvision.transforms import ToTensor
+from torchvision.transforms import ToTensor, RandomHorizontalFlip, RandomVerticalFlip, Compose
 from PIL import Image
 import h5py
 
@@ -16,8 +16,8 @@ class WSIDataset(VisionDataset):
         transforms = None,
         transform = None,
         target_transform=None,
-        min_physical_size=100,
-        max_physical_size=1000,
+        min_physical_size=80,
+        max_physical_size=500,
         base_resolution=1024,
         use_preprocessed_thumbnails=True,
         thumbnail_file_location="thumbnails.hdf5"
@@ -34,6 +34,12 @@ class WSIDataset(VisionDataset):
         self.to_tensor = ToTensor()
         self.use_preprocessed_thumbnails=use_preprocessed_thumbnails
         self.thumbnail_file_location=thumbnail_file_location
+        self.universal_transforms = Compose(
+            [
+                RandomVerticalFlip(0.5),
+                RandomHorizontalFlip(0.5)
+            ]
+        )
 
         if self.use_preprocessed_thumbnails:
             self.thumbnails = h5py.File(self.thumbnail_file_location, "r")
@@ -50,7 +56,12 @@ class WSIDataset(VisionDataset):
         )
         patch = self.random_valid_patch(path, physical_size, self.base_resolution)
         target = self.get_target(index)
-        return self.transform(Image.fromarray(patch)), target
+        pil_image = Image.fromarray(patch)
+        pil_image = self.universal_transforms(pil_image)
+        rotation = random.choice((0, 90, 180, 270))
+        pil_image = pil_image.rotate(rotation)
+
+        return self.transform(pil_image), target
 
     def extract_valid_patches(self, wsi, patch_physical_size, path, threshold=0.1):
 

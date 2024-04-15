@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from dinov2.models.vision_transformer import vit_base
+from dinov2.models.vision_transformer import vit_base, vim_tiny, vim_base, vim_small, vim_base_orig, vim_tiny_orig, vmamba_base, vmamba_small
 from dinov2.fsdp import FSDPCheckpointer
 class Model(nn.Module):
     def __init__(self, backbone, emb_dim, num_classes):
@@ -9,13 +9,17 @@ class Model(nn.Module):
         self.hidden_dim=1024
         self.embed_dim = emb_dim
         self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim*2, num_classes))
+            nn.Linear(self.embed_dim*3 + emb_dim//2, num_classes))
 
     def forward(self, x):
         output = self.transformer(x, is_training=True)
         cls = output["x_norm_clstoken"]
         average_patch = output["x_norm_patchtokens"].mean(axis=1)
-        concat = torch.cat((cls, average_patch), 1)
+        toks = output["hierarchic_tokens"]
+
+        concat = torch.cat((cls, average_patch, toks[0].view((x.shape[0], -1, toks[0].shape[-1])).mean(axis=1), toks[1].view((x.shape[0], -1, toks[1].shape[-1])).mean(axis=1)), 1)
+        concat = torch.nn.functional.layer_norm(concat, (concat.shape[1],))
+
         x = self.classifier(concat)
         return x
 
@@ -47,7 +51,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
         interpolate_antialias=False,
     )
     #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
-    backbone = vit_base(**vit_kwargs)
+    backbone = vmamba_base(**vit_kwargs)
 
     emb_dim = backbone.embed_dim
 

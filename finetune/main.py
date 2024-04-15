@@ -3,8 +3,8 @@ from tqdm import tqdm
 
 from .dataset import PathologyDataset, load_datasets, load_dataloader
 from .model import init_model, load_model
-from torch.optim import Adam
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim import AdamW, SGD
+from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
 from torch.nn.functional import cross_entropy
 import json
 import time
@@ -16,22 +16,23 @@ DEVICE = "cuda"
 EPOCHS = 1
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 CHECKPOINT_TIME = 20 # Minutes
-LEARNING_RATE_CLASSIFIER =1e-3
+LEARNING_RATE_CLASSIFIER = 1e-3
 LEARNING_RATE_FEATURES = 1e-4
 FILENAME = "weights.pt"
-TRAIN_TRANSFORMER = False
+TRAIN_TRANSFORMER = not True
 GRAD_CLIP_VALUE = 0.0
 STEPS_PR_SCHEDULER_UPDATE = 1000
-SCHEDULER_STEPS_PER_EPOCH = 8
-TRAIN_X_PATH = Path("/home/espenbfo/datasets/classification/pcam/training_split.h5")
-TRAIN_Y_PATH = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_train_y.h5")
-TRAIN_X_PATH_VAL = Path("/home/espenbfo/datasets/classification/pcam/validation_split.h5")
-TRAIN_Y_PATH_VAL = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_valid_y.h5")
-TRAIN_X_PATH_TEST = Path("/home/espenbfo/datasets/classification/pcam/test_split.h5")
-TRAIN_Y_PATH_TEST = Path("/home/espenbfo/datasets/classification/Labels/Labels/camelyonpatch_level_2_split_test_y.h5")
-CHECKPOINT_PATH = "dino"#Path("weights/teacher_checkpoint-7.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
+SCHEDULER_STEPS_PER_EPOCH = 1
+pcam_path = Path("/home/bgstovel/datasets/classification")
+TRAIN_X_PATH = pcam_path / "pcam/training_split.h5"
+TRAIN_Y_PATH = pcam_path / "Labels/Labels/camelyonpatch_level_2_split_train_y.h5"
+TRAIN_X_PATH_VAL = pcam_path / "pcam/validation_split.h5"
+TRAIN_Y_PATH_VAL = pcam_path / "Labels/Labels/camelyonpatch_level_2_split_valid_y.h5"
+TRAIN_X_PATH_TEST = pcam_path / "pcam/test_split.h5"
+TRAIN_Y_PATH_TEST = pcam_path / "Labels/Labels/camelyonpatch_level_2_split_test_y.h5"
+CHECKPOINT_PATH = Path("/home/bgstovel/PycharmProjects/dinov2_wsi/results_vmambab_sharp_augmented_segm_512/eval/training_24999/teacher_checkpoint.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 def main():
     print("Cuda available?", torch.cuda.is_available())
 
@@ -80,7 +81,9 @@ def main():
     else:
         for parameter in model.transformer.parameters():
             parameter.requires_grad = False
-    optimizer_classifier = Adam(params)
+    optimizer_classifier = AdamW(params)
+    #scheduler = ExponentialLR(optimizer_classifier, 0.5)
+
     scheduler = CosineAnnealingLR(optimizer_classifier, T_max=EPOCHS*SCHEDULER_STEPS_PER_EPOCH)
     with open("classes.json", "w") as f:
         json.dump(classes, f)
@@ -88,38 +91,41 @@ def main():
     loss_arr = np.zeros(LOSS_MEMORY)
     acc_arr = np.zeros(LOSS_MEMORY)
     checkpoint_time = time.time()
+    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(EPOCHS):
         print("epoch", epoch+1)
         total_loss = 0
         print("TRAIN")
         for index, (batch,label) in (pbar := tqdm(enumerate(dataloader_train), total=len(dataloader_train), dynamic_ncols=True)):
-            optimizer_classifier.zero_grad()
-            batch = batch.to(DEVICE)
-            label = label.to(DEVICE)
-            result = model(batch)
-            loss = cross_entropy(result, label)
-            loss.backward()
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                optimizer_classifier.zero_grad()
+                batch = batch.to(DEVICE)
+                label = label.to(DEVICE)
+                result = model(batch)
+                loss = cross_entropy(result, label)
+                scaler.scale(loss).backward()
 
-            if (GRAD_CLIP_VALUE != 0.0):
-                torch.nn.utils.clip_grad_norm_(model.parameters(),
-                                               GRAD_CLIP_VALUE)
+                if (GRAD_CLIP_VALUE != 0.0):
+                    torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                                   GRAD_CLIP_VALUE)
 
-            optimizer_classifier.step()
-            loss_arr = np.roll(loss_arr, -1)
-            loss_arr[-1] = loss.detach().cpu()
-            accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum()/BATCH_SIZE
+                scaler.step(optimizer_classifier)
+                scaler.update()
+                loss_arr = np.roll(loss_arr, -1)
+                loss_arr[-1] = loss.detach().cpu()
+                accuracy = torch.eq(label, torch.argmax(result, dim=1)).sum()/BATCH_SIZE
 
-            acc_arr = np.roll(acc_arr, -1)
-            acc_arr[-1] = accuracy
-            loss = loss_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
-            accuracy = acc_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
-            learning_rates = scheduler.get_last_lr()
-            pbar.postfix = f"mean loss the last {min(index+1, LOSS_MEMORY)} batches {loss:.3f} | accuracy {accuracy:.3f} | time since checkpoint {time.time()-checkpoint_time:.1f}s | Learning rate {learning_rates[0]:.2g}"
-            if (time.time() > checkpoint_time+CHECKPOINT_TIME*60):
-                torch.save(model.state_dict(), FILENAME)
-                checkpoint_time = time.time()
-            if ((index+1)%(len(dataloader_train)//SCHEDULER_STEPS_PER_EPOCH) == 0):
-                scheduler.step()
+                acc_arr = np.roll(acc_arr, -1)
+                acc_arr[-1] = accuracy
+                loss = loss_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
+                accuracy = acc_arr[max(LOSS_MEMORY-index-1,0):LOSS_MEMORY].mean()
+                learning_rates = scheduler.get_last_lr()
+                pbar.postfix = f"mean loss the last {min(index+1, LOSS_MEMORY)} batches {loss:.3f} | accuracy {accuracy:.3f} | time since checkpoint {time.time()-checkpoint_time:.1f}s | Learning rate {learning_rates[0]:.2g}"
+                if (time.time() > checkpoint_time+CHECKPOINT_TIME*60):
+                    torch.save(model.state_dict(), FILENAME)
+                    checkpoint_time = time.time()
+                if ((index+1)%(len(dataloader_train)//SCHEDULER_STEPS_PER_EPOCH) == 0):
+                    scheduler.step()
 
         if not TRAIN_TRANSFORMER:
             model.classifier.eval()

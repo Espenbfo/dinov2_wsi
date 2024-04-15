@@ -895,7 +895,7 @@ def vim_small_patch16_224_bimambav2_final_pool_mean_abs_pos_embed_rope_also_resi
 @register_model
 def vim_tiny(patch_size=16, num_register_tokens=0, **kwargs):
     model = VisionMamba(
-        patch_size=patch_size, embed_dim=192, depth=24, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
+        patch_size=patch_size, embed_dim=192, depth=24*4, num_classes=0, rms_norm=True, residual_in_fp32=True, fused_add_norm=True,
         final_pool_type='mean', if_abs_pos_embed=True, if_rope=False, if_rope_residual=False, bimamba_type="v2", **kwargs)
 
 
@@ -953,3 +953,13 @@ def vim_tiny_orig(patch_size=16, num_register_tokens=0, **kwargs):
 @register_model
 def vim_base_orig(patch_size=16, num_register_tokens=0, **kwargs):
     return vbo(patch_size=patch_size, num_register_tokens=num_register_tokens, **kwargs)
+
+from .vmamba import vmamba_B, vmamba_S
+
+@register_model
+def vmamba_small(patch_size=16, num_register_tokens=0, **kwargs):
+    return vmamba_S(patch_size, num_register_tokens, **kwargs)
+
+@register_model
+def vmamba_base(patch_size=16, num_register_tokens=0, **kwargs):
+    return vmamba_B(patch_size, num_register_tokens, **kwargs)

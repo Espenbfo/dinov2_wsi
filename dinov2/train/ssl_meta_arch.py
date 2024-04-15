@@ -228,7 +228,6 @@ class SSLMetaArch(nn.Module):
         teacher_dino_softmaxed_centered_list, masked_teacher_ibot_softmaxed_centered = get_teacher_output()
         reshard_fsdp_model(self.teacher)
         loss_dict = {}
-
         loss_accumulator = 0  # for backprop
         student_global_backbone_output_dict, student_local_backbone_output_dict = self.student.backbone(
             [global_crops, local_crops], masks=[masks, None], is_training=True
