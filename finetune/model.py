@@ -3,23 +3,23 @@ from torch import nn
 from dinov2.models.vision_transformer import vit_base, vim_tiny, vim_base, vim_small, vim_base_orig, vim_tiny_orig, vmamba_base, vmamba_small
 from dinov2.fsdp import FSDPCheckpointer
 class Model(nn.Module):
-    def __init__(self, backbone, emb_dim, num_classes):
+    def __init__(self, backbone, emb_dim, num_classes, is_phikon=False):
         super(Model, self).__init__()
         self.transformer = backbone
-        self.hidden_dim=1024
         self.embed_dim = emb_dim
+        self.is_phikon = is_phikon
         self.classifier = nn.Sequential(
-            nn.Linear(self.embed_dim*3 + emb_dim//2, num_classes))
+            nn.Linear(self.embed_dim*(2 if not self.is_phikon else 1), num_classes))
 
     def forward(self, x):
-        output = self.transformer(x, is_training=True)
-        cls = output["x_norm_clstoken"]
-        average_patch = output["x_norm_patchtokens"].mean(axis=1)
-        toks = output["hierarchic_tokens"]
-
-        concat = torch.cat((cls, average_patch, toks[0].view((x.shape[0], -1, toks[0].shape[-1])).mean(axis=1), toks[1].view((x.shape[0], -1, toks[1].shape[-1])).mean(axis=1)), 1)
+        if self.is_phikon:
+            concat = self.transformer(x)
+        else:
+            output = self.transformer(x, is_training=True)
+            cls = output["x_norm_clstoken"]
+            average_patch = output["x_norm_patchtokens"].mean(axis=1)
+            concat = torch.cat((cls, average_patch), 1)
         concat = torch.nn.functional.layer_norm(concat, (concat.shape[1],))
-
         x = self.classifier(concat)
         return x
 
@@ -36,31 +36,35 @@ def extract_teacher_weights(ordered_dict):
     return new_dict
 
 
-def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
-    vit_kwargs = dict(
-        img_size=224,
-        patch_size=16,
-        init_values=1.0e-05,
-        ffn_layer="swiglufused",
-        block_chunks=4,
-        qkv_bias=True,
-        proj_bias=True,
-        ffn_bias=True,
-        num_register_tokens=0,
-        interpolate_offset=0.1,
-        interpolate_antialias=False,
-    )
-    #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
-    backbone = vmamba_base(**vit_kwargs)
-
-    emb_dim = backbone.embed_dim
-
-    if pretrained_path == "dino":
+def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="normal"):
+    is_phikon = False
+    if mode == "dino":
         backbone = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14_reg')
-    elif pretrained_path is not None:
+    elif mode == "phikon":
+        from HistoSSLscaling.rl_benchmarks.models.feature_extractors.ibot_vit import iBOTViT
+        backbone = iBOTViT(weights_path="weights/ibot_vit_base_pancan.pth", encoder="student")
+        emb_dim = backbone.feature_extractor.num_features
+        is_phikon = True
+    elif mode == "normal" and pretrained_path is not None:
+        vit_kwargs = dict(
+            img_size=224,
+            patch_size=16,
+            init_values=1.0e-05,
+            ffn_layer="swiglufused",
+            block_chunks=4,
+            qkv_bias=True,
+            proj_bias=True,
+            ffn_bias=True,
+            num_register_tokens=0,
+            interpolate_offset=0.1,
+            interpolate_antialias=False,
+        )
+        #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
+        backbone = vit_base(**vit_kwargs)
+
+        emb_dim = backbone.embed_dim
         if (teacher_checkpoint):
             data = torch.load(pretrained_path)
-            print(data.keys())
             state_dict = extract_teacher_weights(data["teacher"])
             backbone.load_state_dict(state_dict)
         else:
@@ -70,7 +74,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True):
             backbone.load_state_dict(state_dict)
 
     print(f"Embedding dimension: {emb_dim}]")
-    model = Model(backbone, emb_dim, classes)
+    model = Model(backbone, emb_dim, classes, is_phikon)
     return model
 
 def load_model(classes, filename):

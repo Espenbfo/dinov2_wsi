@@ -76,7 +76,7 @@ def main():
         grp.attrs["labels"] = tuple(labels)
         if 2 in labels:
             inner_image = whole_image[0]
-            tumor_coords = np.argwhere(inner_image == 2).astype(float)
+            tumor_coords = np.argwhere(inner_image == 2).astype(float)+0.5
             tumor_coords[:, 0] /= inner_image.shape[0]
             tumor_coords[:, 1] /= inner_image.shape[1]
             grp.create_dataset("cancer", data=tumor_coords)

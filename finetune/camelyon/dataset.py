@@ -42,16 +42,17 @@ class CamyleonDataset(Dataset):
         self.files = self.find_valid_files()
 
         self.rng_seed = 33
-        self.random = np.random.default_rng(self.rng_seed)
+        self.random = np.random.default_rng(self.rng_seed) if not self.is_train else np.random
 
         self.transforms = get_transforms(sizes, is_train)
 
         self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
 
         self.reset_rng()
+        print(f"INIT DATASET train {self.is_train}")
 
     def reset_rng(self):
-        self.random = np.random.default_rng(self.rng_seed)
+        self.random = np.random.default_rng(self.rng_seed) if not self.is_train else np.random
 
     def find_valid_files(self):
         masks = []
@@ -79,9 +80,8 @@ class CamyleonDataset(Dataset):
         return len(self.files["images"]) * self.iterations_per_epoch_multiplier
 
     def __getitem__(self, index) -> (torch.Tensor, torch.Tensor):
-        label = self.random.choice(self.labels, p=(0.9, 0.1) if self.is_train else None)
+        label = self.random.choice(self.labels, p=(0.5, 0.5) if self.is_train else None)
         index, key = self.label_to_index[label][self.random.choice(len(self.label_to_index[label]))]
-
         return self.retrieve_patch_with_label(label, index, key, self.sizes), label
 
     def get_image_and_mask(self, index):
@@ -101,7 +101,7 @@ class CamyleonDataset(Dataset):
         return (image_patch[0], mask_patch[0])
 
     def find_random_area_with_label(self, mask: np.ndarray, label: int):
-        valid_coords = np.argwhere(mask == label)
+        valid_coords = np.argwhere(mask == label)+0.5
         random_coord = valid_coords[self.random.choice(len(valid_coords))]
         mask_shape = mask.shape
 
