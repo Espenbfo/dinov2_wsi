@@ -16,7 +16,7 @@ DEVICE = "cuda"
 EPOCHS = 1
 CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
-BATCH_SIZE = 8
+BATCH_SIZE = 128
 LEARNING_RATE_CLASSIFIER =1e-3
 LEARNING_RATE_FEATURES = 1e-3
 FILENAME = "weights_1_epoch.pt"
@@ -24,7 +24,7 @@ TRAIN_TRANSFORMER = False
 EARLY_STOPPING_MEMORY = 15
 DATASET = "wilds" # One of PCam, wilds
 MODEL_MODE = "normal" # One of "normal", "dino" for dinov2 trained on natural images, or "phikon" for the phikon model
-CHECKPOINT_PATH = Path("/home/bgstovel/PycharmProjects/dinov2_wsi/results_vmambab_sharp_augmented_segm/eval/training_124999/teacher_checkpoint.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
+CHECKPOINT_PATH = Path("/home/bgstovel/PycharmProjects/dinov2_wsi/results_vmambati/eval/training_174999/teacher_checkpoint.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 
 match DATASET:
     case "PCam":
@@ -59,6 +59,7 @@ def main():
         model = init_model(len(classes), CHECKPOINT_PATH, teacher_checkpoint=True, mode=MODEL_MODE).to(DEVICE)
     model.transformer.eval()
     params = [{"params": model.classifier.parameters(), "lr": LEARNING_RATE_CLASSIFIER}]
+    params.append({"params": model.transformer.token_classifier.parameters(), "lr": LEARNING_RATE_FEATURES})
 
     if TRAIN_TRANSFORMER:
         model.transformer.train()

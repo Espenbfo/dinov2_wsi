@@ -8,7 +8,7 @@ train:
   OFFICIAL_EPOCH_LENGTH: 2500
   saveckp_freq: 25000
 student:
-  arch: vim_tiny_orig
+  arch: vmamba_tiny
   patch_size: 16
   drop_path_rate: 0.4
   ffn_layer: swiglufused
@@ -35,7 +35,7 @@ optim:
   epochs: 100
   weight_decay: 0.04
   weight_decay_end: 0.2
-  base_lr: 0.001 #0.004  # learning rate for a batch size of 1024
+  base_lr: 0.002 #0.004  # learning rate for a batch size of 1024
   lr: 0.  # will be set after applying scaling rule
   warmup_epochs: 10 #10
   min_lr: 1.0e-06

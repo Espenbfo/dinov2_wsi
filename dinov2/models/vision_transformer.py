@@ -954,7 +954,11 @@ def vim_tiny_orig(patch_size=16, num_register_tokens=0, **kwargs):
 def vim_base_orig(patch_size=16, num_register_tokens=0, **kwargs):
     return vbo(patch_size=patch_size, num_register_tokens=num_register_tokens, **kwargs)
 
-from .vmamba import vmamba_B, vmamba_S
+from .vmamba import vmamba_B, vmamba_S, vmamba_T
+
+@register_model
+def vmamba_tiny(patch_size=16, num_register_tokens=0, **kwargs):
+    return vmamba_T(patch_size, num_register_tokens, **kwargs)
 
 @register_model
 def vmamba_small(patch_size=16, num_register_tokens=0, **kwargs):

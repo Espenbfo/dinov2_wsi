@@ -1441,6 +1441,10 @@ class VSSM(nn.Module):
           #  flatten=nn.Flatten(1),
           #  head=nn.Linear(self.num_features, num_classes),
         #))
+        self.token_classifier = nn.Sequential(
+            nn.Linear(self.embed_dim, self.embed_dim),
+            nn.GELU()
+        )
 
         self.apply(self._init_weights)
 
@@ -1630,7 +1634,7 @@ class VSSM(nn.Module):
 
             # x_norm = self.norm(x)
             output.append({
-                "x_norm_clstoken": patchtokens[:, :].max(dim=1).values,
+                "x_norm_clstoken": self.token_classifier(patchtokens[:, :]).mean(dim=1),
                 "x_norm_regtokens": patchtokens[:, 1:  1],
                 "x_norm_patchtokens": patchtokens,
                 "x_prenorm": patchtokens,
@@ -1666,7 +1670,7 @@ class VSSM(nn.Module):
 
         #x_norm = self.norm(x)
         return {
-            "x_norm_clstoken": patchtokens[:, :].max(dim=1).values,
+            "x_norm_clstoken": self.token_classifier(patchtokens[:, :]).mean(dim=1),
             "x_norm_regtokens": patchtokens[:, 1 :  1],
             "x_norm_patchtokens": patchtokens,
             "x_prenorm": patchtokens,
@@ -1821,9 +1825,9 @@ def vmamba_S(patch_size=16, num_register_tokens=0, **kwargs):
 
 def vmamba_B(patch_size=16, num_register_tokens=0, **kwargs):
     model = VSSM(
-            patch_size=patch_size//4,
-            dims=[128, 256, 512],
-            depths=[3,3,10],
+            patch_size=patch_size//8,
+            dims=[128, 256, 512, 1024],
+            depths=[2,2,27,2],
             **kwargs,
         )
     return model

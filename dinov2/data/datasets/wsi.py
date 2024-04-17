@@ -22,7 +22,7 @@ class WSIDataset(VisionDataset):
         transforms = None,
         transform = None,
         target_transform=None,
-        min_physical_size=80,
+        min_physical_size=100,
         max_physical_size=500,
         base_resolution=1024,
         use_preprocessed_thumbnails=True,

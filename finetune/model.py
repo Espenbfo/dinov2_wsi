@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from dinov2.models.vision_transformer import vit_base, vim_tiny, vim_base, vim_small, vim_base_orig, vim_tiny_orig, vmamba_base, vmamba_small
+from dinov2.models.vision_transformer import vit_base, vim_tiny, vim_base, vim_small, vim_base_orig, vim_tiny_orig, vmamba_base, vmamba_small, vmamba_tiny
 from dinov2.fsdp import FSDPCheckpointer
 class Model(nn.Module):
     def __init__(self, backbone, emb_dim, num_classes, is_phikon=False):
@@ -61,18 +61,18 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
             interpolate_antialias=False,
         )
         #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
-        backbone = vmamba_small(**vit_kwargs)
+        backbone = vmamba_tiny(**vit_kwargs)
 
         emb_dim = backbone.embed_dim
         if (teacher_checkpoint):
             data = torch.load(pretrained_path)
             state_dict = extract_teacher_weights(data["teacher"])
-            backbone.load_state_dict(state_dict)
+            backbone.load_state_dict(state_dict, strict=False)
         else:
             data = torch.load(pretrained_path)
 
             state_dict = extract_teacher_weights(data["model"])
-            backbone.load_state_dict(state_dict)
+            backbone.load_state_dict(state_dict, strict=False)
 
     print(f"Embedding dimension: {emb_dim}]")
     model = Model(backbone, emb_dim, classes, is_phikon)

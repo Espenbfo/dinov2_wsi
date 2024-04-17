@@ -1,7 +1,7 @@
 # this corresponds to the default config
 train:
   dataset_path: Wsi
-  batch_size_per_gpu: 4
+  batch_size_per_gpu: 2
   centering: centering
   cache_dataset: false
   num_workers: 6
@@ -35,7 +35,7 @@ optim:
   epochs: 300
   weight_decay: 0.02
   weight_decay_end: 0.5
-  base_lr: 0.002 #0.004  # learning rate for a batch size of 1024
+  base_lr: 0.001 #0.004  # learning rate for a batch size of 1024
   lr: 0.  # will be set after applying scaling rule
   warmup_epochs: 10 #10
   min_lr: 1.0e-04
