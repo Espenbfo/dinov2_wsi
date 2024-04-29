@@ -26,7 +26,7 @@ def get_transforms(sizes, is_train):
 
 class CamyleonDataset(Dataset):
     def __init__(
-        self, preprocessed_data_file: Path | str, is_train=True, sizes=(100, 400), train_fraction=0.8, iterations_per_epoch_multiplier=100
+        self, preprocessed_data_file: Path | str, is_train=True, sizes=(100, 400), train_fraction=0.8, iterations_per_epoch_multiplier=100, class_weights=(0.5, 0.5)
     ) -> None:
         super().__init__()
         self.preprocessed_data = h5py.File(preprocessed_data_file, "r")
@@ -47,7 +47,7 @@ class CamyleonDataset(Dataset):
         self.transforms = get_transforms(sizes, is_train)
 
         self.iterations_per_epoch_multiplier = iterations_per_epoch_multiplier
-
+        self.class_weights = class_weights
         self.reset_rng()
         print(f"INIT DATASET train {self.is_train}")
 
@@ -80,7 +80,7 @@ class CamyleonDataset(Dataset):
         return len(self.files["images"]) * self.iterations_per_epoch_multiplier
 
     def __getitem__(self, index) -> (torch.Tensor, torch.Tensor):
-        label = self.random.choice(self.labels, p=(0.5, 0.5) if self.is_train else None)
+        label = self.random.choice(self.labels, p=self.class_weights)
         index, key = self.label_to_index[label][self.random.choice(len(self.label_to_index[label]))]
         return self.retrieve_patch_with_label(label, index, key, self.sizes), label
 

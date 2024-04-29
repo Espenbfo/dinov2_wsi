@@ -46,7 +46,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
         backbone = iBOTViT(weights_path="weights/ibot_vit_base_pancan.pth", encoder="student")
         emb_dim = backbone.feature_extractor.num_features
         is_phikon = True
-    elif mode == "normal" and pretrained_path is not None:
+    elif mode == "normal":
         vit_kwargs = dict(
             img_size=224,
             patch_size=16,
@@ -64,15 +64,16 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
         backbone = vmamba_tiny(**vit_kwargs)
 
         emb_dim = backbone.embed_dim
-        if (teacher_checkpoint):
-            data = torch.load(pretrained_path)
-            state_dict = extract_teacher_weights(data["teacher"])
-            backbone.load_state_dict(state_dict, strict=False)
-        else:
-            data = torch.load(pretrained_path)
+        if pretrained_path:
+            if (teacher_checkpoint):
+                data = torch.load(pretrained_path)
+                state_dict = extract_teacher_weights(data["teacher"])
+                backbone.load_state_dict(state_dict)
+            else:
+                data = torch.load(pretrained_path)
 
-            state_dict = extract_teacher_weights(data["model"])
-            backbone.load_state_dict(state_dict, strict=False)
+                state_dict = extract_teacher_weights(data["model"])
+                backbone.load_state_dict(state_dict)
 
     print(f"Embedding dimension: {emb_dim}]")
     model = Model(backbone, emb_dim, classes, is_phikon)

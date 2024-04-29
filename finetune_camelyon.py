@@ -1,3 +1,3 @@
-from finetune.camelyon.main import main
+from finetune.segmentation.main import main
 
 main()
