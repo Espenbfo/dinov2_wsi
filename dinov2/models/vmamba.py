@@ -1826,7 +1826,8 @@ def vmamba_S(patch_size=16, num_register_tokens=0, **kwargs):
 def vmamba_B(patch_size=16, num_register_tokens=0, **kwargs):
     model = VSSM(
             patch_size=patch_size//8,
-            dims=[128, 256, 512, 1024],
+            dims=[32, 64, 128, 256
+                  ],
             depths=[2,2,27,2],
             **kwargs,
         )

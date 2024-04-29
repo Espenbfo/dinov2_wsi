@@ -1,7 +1,7 @@
 # this corresponds to the default config
 train:
   dataset_path: Wsi
-  batch_size_per_gpu: 2
+  batch_size_per_gpu: 4
   centering: centering
   cache_dataset: false
   num_workers: 6

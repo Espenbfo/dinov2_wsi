@@ -18,16 +18,17 @@ CONTINUE_TRAINING = False
 LOSS_MEMORY = 1000 # batches
 BATCH_SIZE = 32
 LEARNING_RATE_CLASSIFIER =1e-3
-LEARNING_RATE_FEATURES = 1e-3
+LEARNING_RATE_FEATURES = 5e-5
 FILENAME = "weights_1_epoch.pt"
-TRAIN_TRANSFORMER = False
+TRAIN_TRANSFORMER = not True
 EARLY_STOPPING_MEMORY = 15
 DATASET = "PCam" # One of PCam, wilds, crc, crc_no_norm, BACH
 MODEL_MODE = "normal" # One of "normal", "dino" for dinov2 trained on natural images, or "phikon" for the phikon model
-CHECKPOINT_PATH = Path("weights/constant")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
+CHECKPOINT_PATH = Path("/home/bgstovel/Downloads/training_499999_vmamba_tiny_long/teacher_checkpoint.pth")#Path("weights/teacher_checkpoint-3.pth")#Path("/home/espenbfo/results/model_0037499.rank_0.pth")
 VALIDATION_FREQ = 1
 RUNS_PER_CHECKPOINT = 4
 JSON_FILENAME="results_constant.json"
+
 
 def main():
     results = {}
