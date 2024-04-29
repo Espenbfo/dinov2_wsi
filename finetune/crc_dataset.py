@@ -33,6 +33,5 @@ def get_crc_datasets_no_norm():
     train, val = random_split(train_and_val, [0.9, 0.1], generator)
     train.classes = train_and_val.classes
 
-    print(train_and_val.classes, test.classes)
 
     return train, val, test

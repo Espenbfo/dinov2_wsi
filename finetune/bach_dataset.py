@@ -14,9 +14,7 @@ test_root = root / "ICIAR2018_BACH_Challenge_TestDataset/Photos"
 normstain = NormalizeHEStains()
 transf = transforms.Compose([
     transforms.ToTensor(),
-            transforms.RandomResizedCrop((224, 224), scale=(0.25, 1),ratio=(1,1),antialias=False),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
+            transforms.RandomResizedCrop((224, 224), scale=(0.5, 1),ratio=(1,1),antialias=False),
         ])
 
 test_transf = transforms.Compose([
@@ -54,7 +52,7 @@ def get_bach_datasets():
     
     full_training = SubsetWithTransforms(train_and_val, transf)
     full_training.classes = train_and_val.classes
-    return full_training, full_training, full_training
+    #return full_training, full_training, full_training
     return train, val, test
 
 class TestDataset(Dataset):
