@@ -46,6 +46,62 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
         backbone = iBOTViT(weights_path="weights/ibot_vit_base_pancan.pth", encoder="student")
         emb_dim = backbone.feature_extractor.num_features
         is_phikon = True
+    elif mode == "vim":
+        vit_kwargs = dict(
+            img_size=224,
+            patch_size=16,
+            init_values=1.0e-05,
+            ffn_layer="swiglufused",
+            block_chunks=4,
+            qkv_bias=True,
+            proj_bias=True,
+            ffn_bias=True,
+            num_register_tokens=0,
+            interpolate_offset=0.1,
+            interpolate_antialias=False,
+        )
+        # torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
+        backbone = vim_base(**vit_kwargs)
+
+        emb_dim = backbone.embed_dim
+        if pretrained_path:
+            if (teacher_checkpoint):
+                data = torch.load(pretrained_path)
+                state_dict = extract_teacher_weights(data["teacher"])
+                backbone.load_state_dict(state_dict)
+            else:
+                data = torch.load(pretrained_path)
+
+                state_dict = extract_teacher_weights(data["model"])
+                backbone.load_state_dict(state_dict)
+    elif mode == "vmamba":
+        vit_kwargs = dict(
+            img_size=224,
+            patch_size=16,
+            init_values=1.0e-05,
+            ffn_layer="swiglufused",
+            block_chunks=4,
+            qkv_bias=True,
+            proj_bias=True,
+            ffn_bias=True,
+            num_register_tokens=0,
+            interpolate_offset=0.1,
+            interpolate_antialias=False,
+        )
+        # torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
+        backbone = vmamba_tiny(**vit_kwargs)
+
+        emb_dim = backbone.embed_dim
+        if pretrained_path:
+            if (teacher_checkpoint):
+                data = torch.load(pretrained_path)
+                state_dict = extract_teacher_weights(data["teacher"])
+                backbone.load_state_dict(state_dict)
+            else:
+                data = torch.load(pretrained_path)
+
+                state_dict = extract_teacher_weights(data["model"])
+                backbone.load_state_dict(state_dict)
     elif mode == "normal":
         vit_kwargs = dict(
             img_size=224,
@@ -61,7 +117,7 @@ def init_model(classes, pretrained_path=None, teacher_checkpoint=True, mode="nor
             interpolate_antialias=False,
         )
         #torch.distributed.init_process_group(rank=0, world_size=1, store=torch.distributed.Store())
-        backbone = vmamba_tiny(**vit_kwargs)
+        backbone = vit_base(**vit_kwargs)
 
         emb_dim = backbone.embed_dim
         if pretrained_path:
